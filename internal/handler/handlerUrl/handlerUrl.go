@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	urlservice "github.com/al-tokarev/shortener.git/internal/service/urlService"
+	urlservice "github.com/al-tokarev/shortener/internal/service/urlService"
 )
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {

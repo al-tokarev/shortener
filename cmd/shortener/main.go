@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/al-tokarev/shortener.git/internal/router"
+	"github.com/al-tokarev/shortener/internal/router"
 )
 
 func main() {

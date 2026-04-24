@@ -3,7 +3,7 @@ package router
 import (
 	"net/http"
 
-	"github.com/al-tokarev/shortener.git/internal/handler/handlerurl"
+	"github.com/al-tokarev/shortener/internal/handler/handlerurl"
 )
 
 func GoRouter() error {
