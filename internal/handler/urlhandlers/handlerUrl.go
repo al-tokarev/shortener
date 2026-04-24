@@ -8,9 +8,10 @@ import (
 )
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain")
 
 	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
 
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -21,17 +22,20 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	urlservices.StorageURL["EwHXdJfB"] = string(body)
+
 	w.WriteHeader(201)
-	w.Write([]byte("EwHXdJfB"))
+	w.Write([]byte("http://localhost:8080/EwHXdJfB"))
 }
 
-func GetFullUrl(w http.ResponseWriter, r *http.Request) {
+func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	if _, ok := urlservices.StorageURL[id]; !ok {
+	fullUrl, ok := urlservices.StorageURL[id]
+	if !ok {
 		http.Error(w, "URL is not found", 400)
 		return
 	}
 
-	http.Redirect(w, r, urlservices.StorageURL[id], 307)
+	http.Redirect(w, r, fullUrl, 307)
 }

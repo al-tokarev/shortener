@@ -10,7 +10,7 @@ func GoRouter() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /", urlhandlers.GetShortenedUrl)
-	mux.HandleFunc("GET /{id}", urlhandlers.GetFullUrl)
+	mux.HandleFunc("GET /{id}", urlhandlers.RedirectFullUrl)
 
 	return http.ListenAndServe(":8080", mux)
 }
