@@ -1,10 +1,10 @@
-package handlerurl
+package urlhandlers
 
 import (
 	"io"
 	"net/http"
 
-	urlservice "github.com/al-tokarev/shortener/internal/service/urlService"
+	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 )
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
@@ -28,10 +28,10 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 func GetFullUrl(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	if _, ok := urlservice.StorageURL[id]; !ok {
+	if _, ok := urlservices.StorageURL[id]; !ok {
 		http.Error(w, "URL is not found", 400)
 		return
 	}
 
-	http.Redirect(w, r, urlservice.StorageURL[id], 307)
+	http.Redirect(w, r, urlservices.StorageURL[id], 307)
 }
