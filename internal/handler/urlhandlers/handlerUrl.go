@@ -10,6 +10,15 @@ import (
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("Content-Type") != "text/plain" {
+		w.WriteHeader(400)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -18,7 +27,8 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(body) == 0 {
-		http.Error(w, "Body is empty", 400)
+		w.WriteHeader(400)
+		w.Write([]byte("Body is empty"))
 		return
 	}
 
@@ -29,6 +39,11 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	id := r.PathValue("id")
 
 	fullUrl, ok := urlservices.StorageURL[id]
