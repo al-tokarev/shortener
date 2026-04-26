@@ -4,13 +4,14 @@ import (
 	"net/http"
 
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
+	"github.com/go-chi/chi"
 )
 
 func GoRouter() error {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.HandleFunc("POST /", urlhandlers.GetShortenedUrl)
-	mux.HandleFunc("GET /{id}", urlhandlers.RedirectFullUrl)
+	r.Post("/", urlhandlers.GetShortenedUrl)
+	r.Get("/{id}", urlhandlers.RedirectFullUrl)
 
-	return http.ListenAndServe(":8080", mux)
+	return http.ListenAndServe(":8080", r)
 }
