@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
+	"github.com/go-chi/chi"
 )
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +45,7 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := r.PathValue("id")
+	id := chi.URLParam(r, "id")
 
 	fullUrl, ok := urlservices.StorageURL[id]
 	if !ok {

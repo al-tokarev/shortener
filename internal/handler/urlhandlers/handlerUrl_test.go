@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/require"
 )
 
@@ -97,6 +98,9 @@ func TestGetShortenedUrl(t *testing.T) {
 }
 
 func TestRedirectFullUrl(t *testing.T) {
+	r := chi.NewRouter()
+	r.Get("/{id}", RedirectFullUrl)
+
 	type want struct {
 		statusCode int
 	}
@@ -137,11 +141,9 @@ func TestRedirectFullUrl(t *testing.T) {
 			urlservices.StorageURL["EwHXdJfB"] = "http://example.com"
 
 			request := httptest.NewRequest(test.httpMethod, "/"+test.id, nil)
-			request.SetPathValue("id", test.id)
-
 			w := httptest.NewRecorder()
-			h := http.HandlerFunc(RedirectFullUrl)
-			h(w, request)
+
+			r.ServeHTTP(w, request)
 
 			result := w.Result()
 
