@@ -14,7 +14,9 @@ import (
 )
 
 func TestGetShortenedUrl(t *testing.T) {
-	config.Options.AddrResp = "http://localhost:8080"
+	if config.Options.AddrResp == "" {
+		config.Options.AddrResp = "http://localhost:8080"
+	}
 
 	type want struct {
 		contentType string
