@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/router"
 )
 
@@ -11,5 +12,6 @@ func main() {
 }
 
 func run() error {
+	config.RunFlags()
 	return router.GoRouter()
 }

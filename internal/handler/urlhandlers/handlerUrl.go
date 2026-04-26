@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/al-tokarev/shortener/internal/config"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
 )
@@ -36,7 +37,8 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	urlservices.StorageURL["EwHXdJfB"] = string(body)
 
 	w.WriteHeader(201)
-	w.Write([]byte("http://localhost:8080/EwHXdJfB"))
+
+	w.Write([]byte(config.Options.AddrResp + "/EwHXdJfB"))
 }
 
 func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {

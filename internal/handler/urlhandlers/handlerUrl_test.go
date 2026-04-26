@@ -7,12 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/al-tokarev/shortener/internal/config"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetShortenedUrl(t *testing.T) {
+	config.Options.AddrResp = "http://localhost:8080"
+
 	type want struct {
 		contentType string
 		body        string
