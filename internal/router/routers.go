@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
@@ -14,5 +15,15 @@ func GoRouter() error {
 	r.Post("/", urlhandlers.GetShortenedUrl)
 	r.Get("/{id}", urlhandlers.RedirectFullUrl)
 
-	return http.ListenAndServe(config.Options.AddrServe, r)
+	server := &http.Server{
+		Addr:              config.Options.AddrServe,
+		Handler:           r,
+		ReadTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 3 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+
+	return server.ListenAndServe()
 }

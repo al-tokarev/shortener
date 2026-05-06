@@ -38,7 +38,7 @@ func TestGetShortenedUrl(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				body:        "http://localhost:8080/EwHXdJfB",
-				statusCode:  201,
+				statusCode:  http.StatusCreated,
 			},
 		},
 		{
@@ -60,7 +60,7 @@ func TestGetShortenedUrl(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				body:        "",
-				statusCode:  400,
+				statusCode:  http.StatusBadRequest,
 			},
 		},
 		{
@@ -71,7 +71,7 @@ func TestGetShortenedUrl(t *testing.T) {
 			want: want{
 				contentType: "text/plain",
 				body:        "Body is empty",
-				statusCode:  400,
+				statusCode:  http.StatusBadRequest,
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestRedirectFullUrl(t *testing.T) {
 			name:       "Correct request",
 			httpMethod: "GET",
 			want: want{
-				statusCode: 307,
+				statusCode: http.StatusTemporaryRedirect,
 			},
 			id: "EwHXdJfB",
 		},
@@ -135,7 +135,7 @@ func TestRedirectFullUrl(t *testing.T) {
 			name:       "Not found id",
 			httpMethod: "GET",
 			want: want{
-				statusCode: 400,
+				statusCode: http.StatusBadRequest,
 			},
 			id: "abcdef",
 		},
@@ -143,7 +143,7 @@ func TestRedirectFullUrl(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			urlservices.StorageURL["EwHXdJfB"] = "http://example.com"
+			urlservices.SetUrl("EwHXdJfB", "http://example.com")
 
 			request := httptest.NewRequest(test.httpMethod, "/"+test.id, nil)
 			w := httptest.NewRecorder()

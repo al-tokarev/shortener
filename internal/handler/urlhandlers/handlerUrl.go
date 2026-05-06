@@ -17,7 +17,7 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("Content-Type") != "text/plain" {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -25,18 +25,18 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if len(body) == 0 {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Body is empty"))
 		return
 	}
 
-	urlservices.StorageURL["EwHXdJfB"] = string(body)
+	urlservices.SetUrl("EwHXdJfB", string(body))
 
-	w.WriteHeader(201)
+	w.WriteHeader(http.StatusCreated)
 
 	w.Write([]byte(config.Options.AddrResp + "/EwHXdJfB"))
 }
@@ -49,11 +49,11 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 
 	id := chi.URLParam(r, "id")
 
-	fullUrl, ok := urlservices.StorageURL[id]
+	fullUrl, ok := urlservices.GetFullUrl(id)
 	if !ok {
-		http.Error(w, "URL is not found", 400)
+		http.Error(w, "URL is not found", http.StatusBadRequest)
 		return
 	}
 
-	http.Redirect(w, r, fullUrl, 307)
+	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
 }
