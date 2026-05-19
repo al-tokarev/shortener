@@ -6,11 +6,13 @@ import (
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
+	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/go-chi/chi"
 )
 
 func GoRouter() error {
 	r := chi.NewRouter()
+	r.Use(logger.WithLogging)
 
 	r.Post("/", urlhandlers.GetShortenedUrl)
 	r.Get("/{id}", urlhandlers.RedirectFullUrl)
@@ -25,5 +27,6 @@ func GoRouter() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 
+	logger.Sugar.Infow("Server is starting", "addr", server.Addr)
 	return server.ListenAndServe()
 }
