@@ -11,6 +11,11 @@ import (
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	if r.Header.Get("Content-Type") != "text/plain" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -37,6 +42,11 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	id := chi.URLParam(r, "id")
 
 	fullUrl, ok := urlservices.GetFullUrl(id)
