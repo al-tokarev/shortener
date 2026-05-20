@@ -1,6 +1,8 @@
 package urlhandlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/model"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/require"
@@ -85,6 +88,102 @@ func TestGetShortenedUrl(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			h := http.HandlerFunc(GetShortenedUrl)
+			h(w, request)
+
+			result := w.Result()
+
+			require.Equal(t, test.want.statusCode, result.StatusCode)
+			require.Equal(t, test.want.contentType, result.Header.Get("Content-Type"))
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+			err = result.Body.Close()
+			require.NoError(t, err)
+
+			require.Equal(t, test.want.body, string(body))
+		})
+	}
+}
+
+func TestGetJsonShortenedUrl(t *testing.T) {
+	if config.Options.AddrResp == "" {
+		config.Options.AddrResp = "http://localhost:8080"
+	}
+
+	type want struct {
+		contentType string
+		body        string
+		statusCode  int
+	}
+	tests := []struct {
+		name        string
+		httpMethod  string
+		contentType string
+		body        interface{}
+		want        want
+	}{
+		{
+			name:        "Correct request",
+			httpMethod:  "POST",
+			contentType: "application/json",
+			body: model.Request{
+				Url: "https://practicum.yandex.ru",
+			},
+			want: want{
+				contentType: "application/json",
+				body:        `{"result":"http://localhost:8080/EwHXdJfB"}` + "\n",
+				statusCode:  http.StatusCreated,
+			},
+		},
+		{
+			name:        "Incorrect http method",
+			httpMethod:  "PUT",
+			contentType: "application/json",
+			body: model.Request{
+				Url: "https://practicum.yandex.ru",
+			},
+			want: want{
+				contentType: "application/json",
+				body:        "",
+				statusCode:  http.StatusMethodNotAllowed,
+			},
+		},
+		{
+			name:        "Incorrect content-type",
+			httpMethod:  "POST",
+			contentType: "text/plain",
+			body: model.Request{
+				Url: "https://practicum.yandex.ru",
+			},
+			want: want{
+				contentType: "application/json",
+				body:        "",
+				statusCode:  http.StatusBadRequest,
+			},
+		},
+		{
+			name:        "Empty body",
+			httpMethod:  "POST",
+			contentType: "application/json",
+			body:        "",
+			want: want{
+				contentType: "application/json",
+				body:        "",
+				statusCode:  http.StatusBadRequest,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			jsonBody, err := json.Marshal(test.body)
+			require.NoError(t, err)
+
+			request := httptest.NewRequest(test.httpMethod, "/api/shorten", bytes.NewBuffer(jsonBody))
+			request.Header.Set("Content-Type", test.contentType)
+
+			w := httptest.NewRecorder()
+			h := http.HandlerFunc(GetJsonShortenedUrl)
 			h(w, request)
 
 			result := w.Result()

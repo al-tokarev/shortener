@@ -15,6 +15,7 @@ func GoRouter() error {
 	r.Use(logger.WithLogging)
 
 	r.Post("/", urlhandlers.GetShortenedUrl)
+	r.Post("/api/shorten", urlhandlers.GetJsonShortenedUrl)
 	r.Get("/{id}", urlhandlers.RedirectFullUrl)
 
 	server := &http.Server{

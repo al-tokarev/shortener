@@ -1,12 +1,16 @@
 package urlhandlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/logger"
+	"github.com/al-tokarev/shortener/internal/model"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
+	"go.uber.org/zap"
 )
 
 func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +41,45 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	urlservices.SetUrl("EwHXdJfB", string(body))
 
 	w.WriteHeader(http.StatusCreated)
-
 	w.Write([]byte(config.Options.AddrResp + "/EwHXdJfB"))
+}
+
+func GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
+	logger.Initialize()
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("Content-Type") != "application/json" {
+		logger.Sugar.Debug("Err content-type")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	logger.Sugar.Info("Start decoding")
+	var request model.Request
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&request); err != nil {
+		logger.Sugar.Debug("Err request decode", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	urlservices.SetUrl("EwHXdJfB", request.Url)
+
+	response := model.Response{
+		Result: config.Options.AddrResp + "/EwHXdJfB",
+	}
+
+	enc := json.NewEncoder(w)
+	w.WriteHeader(http.StatusCreated)
+	if err := enc.Encode(response); err != nil {
+		logger.Sugar.Debug("Err response encode", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }
 
 func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
