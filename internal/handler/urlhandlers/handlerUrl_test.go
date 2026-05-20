@@ -2,6 +2,7 @@ package urlhandlers
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -9,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/al-tokarev/shortener/internal/compress"
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/al-tokarev/shortener/internal/model"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
@@ -106,6 +109,7 @@ func TestGetShortenedUrl(t *testing.T) {
 }
 
 func TestGetJsonShortenedUrl(t *testing.T) {
+	logger.Initialize()
 	if config.Options.AddrResp == "" {
 		config.Options.AddrResp = "http://localhost:8080"
 	}
@@ -199,6 +203,78 @@ func TestGetJsonShortenedUrl(t *testing.T) {
 			require.Equal(t, test.want.body, string(body))
 		})
 	}
+}
+
+func TestCompression(t *testing.T) {
+	if config.Options.AddrResp == "" {
+		config.Options.AddrResp = "http://localhost:8080"
+	}
+
+	requestBody := `{
+        "url":"https://practicum.yandex.ru"
+    }`
+
+	// ожидаемое содержимое тела ответа при успешном запросе
+	successBody := `{
+		"result":"http://localhost:8080/EwHXdJfB"
+    }`
+
+	t.Run("sends_gzip", func(t *testing.T) {
+		buf := bytes.NewBuffer(nil)
+		zb := gzip.NewWriter(buf)
+		_, err := zb.Write([]byte(requestBody))
+		require.NoError(t, err)
+		err = zb.Close()
+		require.NoError(t, err)
+
+		request := httptest.NewRequest(http.MethodPost, "/api/shorten", buf)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("Accept-Encoding", "")
+
+		w := httptest.NewRecorder()
+		h := compress.GzipMiddleware(http.HandlerFunc(GetJsonShortenedUrl))
+		h.ServeHTTP(w, request)
+
+		result := w.Result()
+
+		require.Equal(t, http.StatusCreated, result.StatusCode)
+
+		body, err := io.ReadAll(result.Body)
+		require.NoError(t, err)
+		err = result.Body.Close()
+		require.NoError(t, err)
+
+		require.JSONEq(t, successBody, string(body))
+	})
+
+	t.Run("accepts_gzip", func(t *testing.T) {
+		reqBody := strings.NewReader(requestBody)
+
+		request := httptest.NewRequest(http.MethodPost, "/api/shorten", reqBody)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Encoding", "")
+		request.Header.Set("Accept-Encoding", "gzip")
+
+		w := httptest.NewRecorder()
+		h := compress.GzipMiddleware(http.HandlerFunc(GetJsonShortenedUrl))
+		h.ServeHTTP(w, request)
+
+		result := w.Result()
+
+		require.Equal(t, http.StatusCreated, result.StatusCode)
+
+		gr, err := gzip.NewReader(result.Body)
+		require.NoError(t, err)
+
+		body, err := io.ReadAll(gr)
+		require.NoError(t, err)
+
+		err = result.Body.Close()
+		require.NoError(t, err)
+
+		require.JSONEq(t, successBody, string(body))
+	})
 }
 
 func TestRedirectFullUrl(t *testing.T) {

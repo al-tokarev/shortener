@@ -45,7 +45,6 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
-	logger.Initialize()
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodPost {
