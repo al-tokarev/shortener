@@ -51,7 +51,19 @@ func WithLogging(h http.Handler) http.Handler {
 			ResponseWriter: w,
 			responseData:   responseData{0, 0},
 		}
+
+		Sugar.Infow("=== WithLogging BEFORE handler ===",
+			"method", method,
+			"uri", uri,
+			"headers", r.Header)
+
 		h.ServeHTTP(&lw, r)
+
+		Sugar.Infow("=== WithLogging AFTER handler ===",
+			"method", method,
+			"uri", uri,
+			"response_headers", lw.Header(),
+			"status_code", lw.responseData.status)
 
 		duration := time.Since(timeNow)
 		Sugar.Infow("Request is finish",

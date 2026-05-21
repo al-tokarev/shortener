@@ -2,6 +2,7 @@ package urlhandlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -88,6 +89,11 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
+	logger.Sugar.Infow("=== REDIRECT START ===",
+		"writer_type", fmt.Sprintf("%T", w),
+		"method", r.Method,
+		"path", r.URL.Path)
 
 	id := chi.URLParam(r, "id")
 

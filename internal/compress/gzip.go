@@ -2,6 +2,7 @@ package compress
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -87,7 +88,11 @@ func GzipMiddleware(h http.Handler) http.Handler {
 		contentType := r.Header.Get("Content-Type")
 		mainType := strings.Split(contentType, ";")[0]
 
+		fmt.Println(mainType)
+
 		if availableTypes[mainType] {
+			logger.Sugar.Info("Content-type can be compress")
+
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 			supportGzip := strings.Contains(acceptEncoding, "gzip")
 			if supportGzip {

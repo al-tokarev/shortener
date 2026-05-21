@@ -13,7 +13,7 @@ import (
 
 func GoRouter() error {
 	r := chi.NewRouter()
-	r.Use(logger.WithLogging)
+	// r.Use(logger.WithLogging)
 	r.Use(compress.GzipMiddleware)
 
 	r.Post("/", urlhandlers.GetShortenedUrl)
