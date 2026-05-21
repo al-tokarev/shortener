@@ -14,10 +14,9 @@ import (
 func GoRouter() error {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
-	r.Use(compress.GzipMiddleware)
 
-	r.Post("/", urlhandlers.GetShortenedUrl)
-	r.Post("/api/shorten", urlhandlers.GetJsonShortenedUrl)
+	r.Post("/", compress.GzipMiddleware(http.HandlerFunc(urlhandlers.GetShortenedUrl)))
+	r.Post("/api/shorten", compress.GzipMiddleware(http.HandlerFunc(urlhandlers.GetJsonShortenedUrl)))
 	r.Get("/{id}", urlhandlers.RedirectFullUrl)
 
 	server := &http.Server{

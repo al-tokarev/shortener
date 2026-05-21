@@ -73,7 +73,7 @@ var availableTypes = map[string]bool{
 	"text/html":        true,
 }
 
-func GzipMiddleware(h http.Handler) http.Handler {
+func GzipMiddleware(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		new_resp_wr := w
 
