@@ -2,7 +2,6 @@ package urlhandlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -90,11 +89,6 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Sugar.Infow("=== REDIRECT START ===",
-		"writer_type", fmt.Sprintf("%T", w),
-		"method", r.Method,
-		"path", r.URL.Path)
-
 	id := chi.URLParam(r, "id")
 
 	fullUrl, ok := urlservices.GetFullUrl(id)
@@ -103,6 +97,5 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", fullUrl)
-	w.WriteHeader(http.StatusTemporaryRedirect)
+	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
 }

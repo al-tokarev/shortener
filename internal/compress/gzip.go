@@ -2,7 +2,6 @@ package compress
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -88,8 +87,6 @@ func GzipMiddleware(h http.Handler) http.Handler {
 		contentType := r.Header.Get("Content-Type")
 		mainType := strings.Split(contentType, ";")[0]
 
-		fmt.Println(mainType)
-
 		if availableTypes[mainType] {
 			logger.Sugar.Info("Content-type can be compress")
 
@@ -100,20 +97,21 @@ func GzipMiddleware(h http.Handler) http.Handler {
 				new_resp_wr = cw
 				defer cw.Close()
 			}
-
-			contentEncoding := r.Header.Get("Content-Encoding")
-			sendsGzip := strings.Contains(contentEncoding, "gzip")
-			if sendsGzip {
-				cr, err := newCompressReader(r.Body)
-				if err != nil {
-					logger.Sugar.Debug("Error create compress reader")
-					w.WriteHeader(http.StatusBadRequest)
-					return
-				}
-				r.Body = cr
-				defer cr.Close()
-			}
 		}
+
+		contentEncoding := r.Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			cr, err := newCompressReader(r.Body)
+			if err != nil {
+				logger.Sugar.Debug("Error create compress reader")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			r.Body = cr
+			defer cr.Close()
+		}
+
 		h.ServeHTTP(new_resp_wr, r)
 	})
 }
