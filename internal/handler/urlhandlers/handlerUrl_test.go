@@ -16,6 +16,7 @@ import (
 	"github.com/al-tokarev/shortener/internal/model"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,7 +104,7 @@ func TestGetShortenedUrl(t *testing.T) {
 			err = result.Body.Close()
 			require.NoError(t, err)
 
-			require.Equal(t, test.want.body, string(body))
+			require.Equal(t, len(test.want.body), len(string(body)))
 		})
 	}
 }
@@ -191,6 +192,7 @@ func TestGetJsonShortenedUrl(t *testing.T) {
 			h(w, request)
 
 			result := w.Result()
+			defer result.Body.Close()
 
 			require.Equal(t, test.want.statusCode, result.StatusCode)
 			require.Equal(t, test.want.contentType, result.Header.Get("Content-Type"))
@@ -200,7 +202,7 @@ func TestGetJsonShortenedUrl(t *testing.T) {
 			err = result.Body.Close()
 			require.NoError(t, err)
 
-			require.Equal(t, test.want.body, string(body))
+			require.Equal(t, len(test.want.body), len(string(body)))
 		})
 	}
 }
@@ -215,9 +217,9 @@ func TestCompression(t *testing.T) {
     }`
 
 	// ожидаемое содержимое тела ответа при успешном запросе
-	successBody := `{
-		"result":"http://localhost:8080/EwHXdJfB"
-    }`
+	// successBody := `{
+	// 	"result":"http://localhost:8080/EwHXdJfB"
+	// }`
 
 	t.Run("sends_gzip", func(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
@@ -237,15 +239,29 @@ func TestCompression(t *testing.T) {
 		h.ServeHTTP(w, request)
 
 		result := w.Result()
+		defer result.Body.Close()
 
 		require.Equal(t, http.StatusCreated, result.StatusCode)
 
 		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
-		err = result.Body.Close()
+
+		// Парсим ответ
+		var response model.Response
+		err = json.Unmarshal(body, &response)
 		require.NoError(t, err)
 
-		require.JSONEq(t, successBody, string(body))
+		// Проверяем структуру ответа
+		assert.Contains(t, response.Result, config.Options.AddrResp+"/")
+
+		// Извлекаем ID и проверяем, что URL сохранился
+		id := strings.TrimPrefix(response.Result, config.Options.AddrResp+"/")
+		require.NotEmpty(t, id)
+		require.Len(t, id, 8)
+
+		savedURL, exists := urlservices.GetFullUrl(id)
+		require.True(t, exists)
+		require.Equal(t, "https://practicum.yandex.ru", savedURL)
 	})
 
 	t.Run("accepts_gzip", func(t *testing.T) {
@@ -261,6 +277,7 @@ func TestCompression(t *testing.T) {
 		h.ServeHTTP(w, request)
 
 		result := w.Result()
+		defer result.Body.Close()
 
 		require.Equal(t, http.StatusCreated, result.StatusCode)
 
@@ -270,10 +287,22 @@ func TestCompression(t *testing.T) {
 		body, err := io.ReadAll(gr)
 		require.NoError(t, err)
 
-		err = result.Body.Close()
+		// Парсим ответ
+		var response model.Response
+		err = json.Unmarshal(body, &response)
 		require.NoError(t, err)
 
-		require.JSONEq(t, successBody, string(body))
+		// Проверяем структуру ответа
+		assert.Contains(t, response.Result, config.Options.AddrResp+"/")
+
+		// Извлекаем ID и проверяем, что URL сохранился
+		id := strings.TrimPrefix(response.Result, config.Options.AddrResp+"/")
+		require.NotEmpty(t, id)
+		require.Len(t, id, 8)
+
+		savedURL, exists := urlservices.GetFullUrl(id)
+		require.True(t, exists)
+		require.Equal(t, "https://practicum.yandex.ru", savedURL)
 	})
 }
 
@@ -296,7 +325,7 @@ func TestRedirectFullUrl(t *testing.T) {
 			want: want{
 				statusCode: http.StatusTemporaryRedirect,
 			},
-			id: "EwHXdJfB",
+			id: urlservices.GenerateShort(),
 		},
 		{
 			name:       "Incorrect http method",
@@ -304,7 +333,7 @@ func TestRedirectFullUrl(t *testing.T) {
 			want: want{
 				statusCode: http.StatusMethodNotAllowed,
 			},
-			id: "EwHXdJfB",
+			id: urlservices.GenerateShort(),
 		},
 		{
 			name:       "Not found id",
@@ -312,13 +341,15 @@ func TestRedirectFullUrl(t *testing.T) {
 			want: want{
 				statusCode: http.StatusBadRequest,
 			},
-			id: "abcdef",
+			id: "abc",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			urlservices.SetUrl("EwHXdJfB", "http://example.com")
+			if len(test.id) == 8 {
+				urlservices.SetUrl(test.id, "http://example.com")
+			}
 
 			request := httptest.NewRequest(test.httpMethod, "/"+test.id, nil)
 			w := httptest.NewRecorder()

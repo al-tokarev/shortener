@@ -38,10 +38,11 @@ func GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlservices.SetUrl("EwHXdJfB", string(body))
+	shortId := urlservices.GenerateShort()
+	urlservices.SetUrl(shortId, string(body))
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(config.Options.AddrResp + "/EwHXdJfB"))
+	w.Write([]byte(config.Options.AddrResp + "/" + shortId))
 }
 
 func GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
@@ -66,10 +67,11 @@ func GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlservices.SetUrl("EwHXdJfB", request.Url)
+	shortId := urlservices.GenerateShort()
+	urlservices.SetUrl(shortId, request.Url)
 
 	response := model.Response{
-		Result: config.Options.AddrResp + "/EwHXdJfB",
+		Result: config.Options.AddrResp + "/" + shortId,
 	}
 
 	enc := json.NewEncoder(w)
