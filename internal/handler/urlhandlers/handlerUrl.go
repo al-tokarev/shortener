@@ -97,5 +97,6 @@ func RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
+	w.Header().Set("Location", fullUrl)
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
