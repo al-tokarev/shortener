@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -21,9 +22,16 @@ import (
 )
 
 func TestGetShortenedUrl(t *testing.T) {
+	logger.Initialize()
 	if config.Options.AddrResp == "" {
 		config.Options.AddrResp = "http://localhost:8080"
 	}
+
+	tmpFile, err := os.CreateTemp("", "test_storage_*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	config.Options.StoragePath = tmpFile.Name()
 
 	type want struct {
 		contentType string
@@ -114,6 +122,11 @@ func TestGetJsonShortenedUrl(t *testing.T) {
 	if config.Options.AddrResp == "" {
 		config.Options.AddrResp = "http://localhost:8080"
 	}
+	tmpFile, err := os.CreateTemp("", "test_storage_*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	config.Options.StoragePath = tmpFile.Name()
 
 	type want struct {
 		contentType string
@@ -208,6 +221,7 @@ func TestGetJsonShortenedUrl(t *testing.T) {
 }
 
 func TestCompression(t *testing.T) {
+	logger.Initialize()
 	if config.Options.AddrResp == "" {
 		config.Options.AddrResp = "http://localhost:8080"
 	}
