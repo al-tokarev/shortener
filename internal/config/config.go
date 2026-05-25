@@ -17,13 +17,13 @@ func RunFlags() {
 	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
 	flag.Parse()
 
-	if envServAddr := os.Getenv("SERVER_ADDRESS"); envServAddr != "" {
+	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
 		Options.AddrServe = envServAddr
 	}
-	if envBaseUrl := os.Getenv("BASE_URL"); envBaseUrl != "" {
+	if envBaseUrl, ok := os.LookupEnv("BASE_URL"); ok {
 		Options.AddrResp = envBaseUrl
 	}
-	if envStoragePath := os.Getenv("FILE_STORAGE_PATH"); envStoragePath != "" {
+	if envStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
 		Options.StoragePath = envStoragePath
 	}
 }

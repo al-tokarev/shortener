@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -17,16 +18,15 @@ type loggingResponseWriter struct {
 	responseData responseData
 }
 
-var Sugar zap.SugaredLogger
-
-func Initialize() error {
+func NewLogger() (*zap.SugaredLogger, error) {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	Sugar = *logger.Sugar()
-	return nil
+	fmt.Println("Добавил логгер")
+
+	return logger.Sugar(), nil
 }
 
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
@@ -40,27 +40,29 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-func WithLogging(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		timeNow := time.Now()
+func WithLogging(logger *zap.SugaredLogger) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			timeNow := time.Now()
 
-		uri := r.RequestURI
-		method := r.Method
+			uri := r.RequestURI
+			method := r.Method
 
-		lw := loggingResponseWriter{
-			ResponseWriter: w,
-			responseData:   responseData{0, 0},
-		}
+			lw := loggingResponseWriter{
+				ResponseWriter: w,
+				responseData:   responseData{http.StatusOK, 0},
+			}
 
-		h.ServeHTTP(&lw, r)
+			h.ServeHTTP(&lw, r)
 
-		duration := time.Since(timeNow)
-		Sugar.Infow("Request is finish",
-			"uri", uri,
-			"method", method,
-			"duration", duration,
-			"response size", lw.responseData.size,
-			"status code", lw.responseData.status,
-		)
-	})
+			duration := time.Since(timeNow)
+			logger.Infow("Request is finish",
+				"uri", uri,
+				"method", method,
+				"duration", duration,
+				"response size", lw.responseData.size,
+				"status code", lw.responseData.status,
+			)
+		})
+	}
 }

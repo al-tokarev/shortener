@@ -6,20 +6,27 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/al-tokarev/shortener/internal/logger"
+	"go.uber.org/zap"
 )
+
+var availableTypes = map[string]bool{
+	"application/json": true,
+	"text/html":        true,
+}
 
 type compressWriter struct {
 	w          http.ResponseWriter
 	gzipWriter *gzip.Writer
 	statusCode int
+	compress   bool
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
 		w:          w,
-		gzipWriter: gzip.NewWriter(w),
+		gzipWriter: nil,
 		statusCode: http.StatusOK,
+		compress:   false,
 	}
 }
 
@@ -28,7 +35,7 @@ func (cw *compressWriter) Header() http.Header {
 }
 
 func (cw *compressWriter) Write(p []byte) (int, error) {
-	if cw.statusCode >= 300 && cw.statusCode < 400 {
+	if !cw.compress {
 		return cw.w.Write(p)
 	}
 	return cw.gzipWriter.Write(p)
@@ -37,14 +44,22 @@ func (cw *compressWriter) Write(p []byte) (int, error) {
 func (cw *compressWriter) WriteHeader(statusCode int) {
 	cw.statusCode = statusCode
 
-	if statusCode >= 200 && statusCode < 300 {
+	contentType := cw.Header().Get("Content-Type")
+	mainType := strings.Split(contentType, ";")[0]
+
+	if statusCode >= 200 && statusCode < 300 && availableTypes[mainType] {
 		cw.w.Header().Set("Content-Encoding", "gzip")
+		cw.gzipWriter = gzip.NewWriter(cw.w)
+		cw.compress = true
 	}
 	cw.w.WriteHeader(statusCode)
 }
 
 func (cw *compressWriter) Close() error {
-	return cw.gzipWriter.Close()
+	if cw.gzipWriter != nil {
+		return cw.gzipWriter.Close()
+	}
+	return nil
 }
 
 type compressReader struct {
@@ -75,43 +90,34 @@ func (cr *compressReader) Close() error {
 	return cr.gzipReader.Close()
 }
 
-var availableTypes = map[string]bool{
-	"application/json": true,
-	"text/html":        true,
-}
-
-func GzipMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		new_resp_wr := w
-
-		contentType := r.Header.Get("Content-Type")
-		mainType := strings.Split(contentType, ";")[0]
-
-		if availableTypes[mainType] {
-			logger.Sugar.Info("Content-type can be compress")
+func GzipMiddleware(logger *zap.SugaredLogger) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger = logger.With(zap.String("component", "Gzip middleware"))
+			newRespWr := w
 
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 			supportGzip := strings.Contains(acceptEncoding, "gzip")
 			if supportGzip {
 				cw := newCompressWriter(w)
-				new_resp_wr = cw
+				newRespWr = cw
 				defer cw.Close()
 			}
-		}
 
-		contentEncoding := r.Header.Get("Content-Encoding")
-		sendsGzip := strings.Contains(contentEncoding, "gzip")
-		if sendsGzip {
-			cr, err := newCompressReader(r.Body)
-			if err != nil {
-				logger.Sugar.Debug("Error create compress reader")
-				w.WriteHeader(http.StatusBadRequest)
-				return
+			contentEncoding := r.Header.Get("Content-Encoding")
+			sendsGzip := strings.Contains(contentEncoding, "gzip")
+			if sendsGzip {
+				cr, err := newCompressReader(r.Body)
+				if err != nil {
+					logger.Debug("Error create compress reader")
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				r.Body = cr
+				defer cr.Close()
 			}
-			r.Body = cr
-			defer cr.Close()
-		}
 
-		h.ServeHTTP(new_resp_wr, r)
-	})
+			h.ServeHTTP(newRespWr, r)
+		})
+	}
 }
