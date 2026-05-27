@@ -3,11 +3,14 @@ package urlrepository
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"go.uber.org/zap"
 )
+
+var ErrShortURLAlreadyExists = errors.New("short URL already exists")
 
 type Repository struct {
 	logger *zap.SugaredLogger
@@ -87,6 +90,10 @@ func (creator *urlCreator) Add(url *Url) error {
 	if err != nil {
 		creator.logger.Warn("Error by add url", err)
 		return err
+	}
+
+	if _, ok := storageUrl[url.ShortUrl]; ok {
+		return ErrShortURLAlreadyExists
 	}
 	if _, err := creator.w.Write(data); err != nil {
 		return err

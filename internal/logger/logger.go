@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -24,7 +24,7 @@ func NewLogger() (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 
-	fmt.Println("Добавил логгер")
+	log.Println("Добавлен логгер")
 
 	return logger.Sugar(), nil
 }

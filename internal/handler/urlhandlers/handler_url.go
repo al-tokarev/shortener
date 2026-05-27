@@ -2,11 +2,13 @@ package urlhandlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/model"
+	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
 	"go.uber.org/zap"
@@ -45,21 +47,19 @@ func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	shortId, err := handler.service.GenerateShort()
-	if err != nil {
-		handler.logger.Debug("Err by generate shortId", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	err = handler.service.SetUrl(shortId, string(body))
+	createdUrl, err := handler.service.SetUrl(string(body))
 	if err != nil {
 		handler.logger.Debug("Err by add url", zap.Error(err))
+		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(config.Options.AddrResp + "/" + shortId))
+	w.Write([]byte(config.Options.AddrResp + "/" + createdUrl.ShortUrl))
 }
 
 func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
@@ -80,21 +80,19 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	shortId, err := handler.service.GenerateShort()
-	if err != nil {
-		handler.logger.Warn("Err by generate shortId", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	err = handler.service.SetUrl(shortId, request.Url)
+	createdUrl, err := handler.service.SetUrl(request.Url)
 	if err != nil {
 		handler.logger.Debug("Err by add url", zap.Error(err))
+		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	response := model.Response{
-		Result: config.Options.AddrResp + "/" + shortId,
+		Result: config.Options.AddrResp + "/" + createdUrl.ShortUrl,
 	}
 
 	enc := json.NewEncoder(w)
