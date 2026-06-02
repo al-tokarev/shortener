@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"github.com/al-tokarev/shortener/internal/router"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -26,7 +29,12 @@ func run() error {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
 
-	repository := urlrepository.NewRepository(logger)
+	conn, err := sql.Open("pgx", config.Options.DatabaseDSN)
+	if err != nil {
+		logger.Fatal(zap.Error(err))
+	}
+
+	repository := urlrepository.NewRepository(conn, logger)
 	service := urlservices.NewService(repository, logger)
 	handler := urlhandlers.NewHandler(service, logger)
 

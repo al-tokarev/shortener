@@ -76,3 +76,7 @@ func (service *Service) GenerateShort() string {
 	}
 	return string(bytesId)
 }
+
+func (service *Service) PingDb() error {
+	return service.repository.Ping()
+}

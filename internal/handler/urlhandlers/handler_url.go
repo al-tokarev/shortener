@@ -115,3 +115,16 @@ func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) 
 
 	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
 }
+
+func (handler *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
+	err := handler.service.PingDb()
+
+	if err != nil {
+		handler.logger.Warn("Error sql connection", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	handler.logger.Info("Pong. SQL connection is success")
+	w.Write([]byte("Pong"))
+	w.WriteHeader(http.StatusOK)
+}

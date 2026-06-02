@@ -2,6 +2,7 @@ package urlrepository
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"os"
@@ -14,6 +15,7 @@ var ErrShortURLAlreadyExists = errors.New("short URL already exists")
 
 type Repository struct {
 	logger *zap.SugaredLogger
+	conn   *sql.DB
 }
 
 type urlCreator struct {
@@ -38,9 +40,10 @@ var storageUrl = make(map[string]Url)
 
 var lastId int
 
-func NewRepository(logger *zap.SugaredLogger) *Repository {
+func NewRepository(conn *sql.DB, logger *zap.SugaredLogger) *Repository {
 	return &Repository{
 		logger: logger.With(zap.String("component", "repository")),
+		conn:   conn,
 	}
 }
 
@@ -158,4 +161,11 @@ func (repository *Repository) GetOriginalByShort(short string) string {
 
 func (repository *Repository) GetLastId() int {
 	return lastId
+}
+
+// БД
+
+func (repository *Repository) Ping() error {
+	repository.logger.Infow("Try db connection", "db", config.Options.DatabaseDSN)
+	return repository.conn.Ping()
 }
