@@ -125,6 +125,6 @@ func (handler *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.logger.Info("Pong. SQL connection is success")
-	w.Write([]byte("Pong"))
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Pong"))
 }

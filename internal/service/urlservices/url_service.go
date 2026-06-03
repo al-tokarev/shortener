@@ -9,11 +9,11 @@ import (
 )
 
 type Service struct {
-	repository *urlrepository.Repository
+	repository urlrepository.RepositoryInterface
 	logger     *zap.SugaredLogger
 }
 
-func NewService(repository *urlrepository.Repository, logger *zap.SugaredLogger) *Service {
+func NewService(repository urlrepository.RepositoryInterface, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repository: repository,
 		logger:     logger.With(zap.String("component", "service")),
@@ -22,13 +22,6 @@ func NewService(repository *urlrepository.Repository, logger *zap.SugaredLogger)
 
 func (service *Service) SetUrl(original string) (*urlrepository.Url, error) {
 	// service.logger.Infow("Create new url", "short", short, "original", original)
-
-	creator, err := service.repository.NewUrlCreator()
-	if err != nil {
-		service.logger.Warn("Error by create creator", err)
-		return nil, err
-	}
-	defer creator.Close()
 
 	const maxAttempts = 10
 	currentAttempt := 1
@@ -40,7 +33,7 @@ func (service *Service) SetUrl(original string) (*urlrepository.Url, error) {
 			ShortUrl:    service.GenerateShort(),
 			OriginalUrl: original,
 		}
-		errorCreate = creator.Add(&url)
+		errorCreate = service.repository.Save(&url)
 		if errors.Is(errorCreate, urlrepository.ErrShortURLAlreadyExists) {
 			service.logger.Debugw("Duplicate url by create", "Attempt", currentAttempt)
 			currentAttempt++
