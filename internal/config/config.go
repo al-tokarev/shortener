@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"os"
 )
 
@@ -18,9 +17,8 @@ func RunFlags() {
 	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
 	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
 
-	ps := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
-		`localhost`, 5432, `alexandr`, `shortener`)
-	flag.StringVar(&Options.DatabaseDSN, "d", ps, "Database connection string")
+	// ps := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable", `localhost`, 5432, `alexandr`, `shortener`)
+	flag.StringVar(&Options.DatabaseDSN, "d", "", "Database connection string")
 	flag.Parse()
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {

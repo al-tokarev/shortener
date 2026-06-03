@@ -29,9 +29,12 @@ func run() error {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
 
-	conn, err := sql.Open("pgx", config.Options.DatabaseDSN)
-	if err != nil {
-		logger.Fatal(zap.Error(err))
+	var conn *sql.DB
+	if config.Options.DatabaseDSN != "" {
+		conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
+		if err != nil {
+			logger.Info("DB connection is not success", zap.Error(err))
+		}
 	}
 
 	repository := urlrepository.NewRepository(conn, logger)
