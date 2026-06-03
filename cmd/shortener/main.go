@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/al-tokarev/shortener/internal/config"
@@ -12,6 +14,7 @@ import (
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"github.com/al-tokarev/shortener/internal/router"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
@@ -31,6 +34,9 @@ func run() error {
 
 	var conn *sql.DB
 	if config.Options.DatabaseDSN != "" {
+		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
+			logger.Fatalw("Failed to run migrations", "error", err)
+		}
 		conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
 		if err != nil {
 			logger.Info("DB connection is not success", zap.Error(err))
@@ -58,4 +64,21 @@ func run() error {
 
 	logger.Infow("Server is starting", "addr", server.Addr)
 	return server.ListenAndServe()
+}
+
+func runMigrations(dsn string) error {
+	_, currentFile, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Join(filepath.Dir(currentFile), "../..")
+	migrationsPath := "file://" + filepath.Join(projectRoot, "migrations")
+
+	m, err := migrate.New(migrationsPath, dsn)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+	return nil
 }
