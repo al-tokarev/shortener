@@ -36,6 +36,7 @@ func run() error {
 
 	var conn *sql.DB
 	if config.Options.DatabaseDSN != "" {
+		logger.Info("DSN: ", config.Options.DatabaseDSN)
 		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
 			logger.Fatalw("Failed to run migrations", "error", err)
 		}
