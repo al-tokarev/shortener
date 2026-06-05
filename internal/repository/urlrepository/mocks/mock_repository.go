@@ -34,6 +34,21 @@ func (m *MockRepositoryInterface) EXPECT() *MockRepositoryInterfaceMockRecorder 
 	return m.recorder
 }
 
+// GetByOriginal mocks base method.
+func (m *MockRepositoryInterface) GetByOriginal(arg0 string) (*model.Url, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByOriginal", arg0)
+	ret0, _ := ret[0].(*model.Url)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByOriginal indicates an expected call of GetByOriginal.
+func (mr *MockRepositoryInterfaceMockRecorder) GetByOriginal(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByOriginal", reflect.TypeOf((*MockRepositoryInterface)(nil).GetByOriginal), arg0)
+}
+
 // GetLastId mocks base method.
 func (m *MockRepositoryInterface) GetLastId() int {
 	m.ctrl.T.Helper()

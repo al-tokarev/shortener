@@ -54,6 +54,11 @@ func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) 
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		if errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(config.Options.AddrResp + "/" + createdUrl.ShortUrl))
+			return
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -81,7 +86,7 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 	}
 
 	createdUrl, err := handler.service.SetUrl(request.Url)
-	if err != nil {
+	if err != nil && !errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
 		handler.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -96,7 +101,12 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 	}
 
 	enc := json.NewEncoder(w)
-	w.WriteHeader(http.StatusCreated)
+	if errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+
 	if err := enc.Encode(response); err != nil {
 		handler.logger.Warn("Err response encode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)

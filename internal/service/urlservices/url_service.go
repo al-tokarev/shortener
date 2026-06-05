@@ -40,6 +40,14 @@ func (service *Service) SetUrl(original string) (*model.Url, error) {
 			currentAttempt++
 			continue
 		}
+		if errors.Is(errorCreate, urlrepository.ErrOriginalURLAlreadyExists) {
+			service.logger.Info("Duplicate original url by create", "Attempt")
+			url, err := service.repository.GetByOriginal(original)
+			if err != nil {
+				return nil, err
+			}
+			return url, errorCreate
+		}
 		break
 	}
 	if errorCreate != nil {
