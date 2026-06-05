@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 
+	"github.com/al-tokarev/shortener/internal/model"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"go.uber.org/zap"
 )
@@ -20,15 +21,15 @@ func NewService(repository urlrepository.RepositoryInterface, logger *zap.Sugare
 	}
 }
 
-func (service *Service) SetUrl(original string) (*urlrepository.Url, error) {
+func (service *Service) SetUrl(original string) (*model.Url, error) {
 	// service.logger.Infow("Create new url", "short", short, "original", original)
 
 	const maxAttempts = 10
 	currentAttempt := 1
-	var url urlrepository.Url
+	var url model.Url
 	var errorCreate error
 	for currentAttempt < maxAttempts {
-		url = urlrepository.Url{
+		url = model.Url{
 			Uuid:        service.repository.GetLastId() + 1,
 			ShortUrl:    service.GenerateShort(),
 			OriginalUrl: original,
@@ -47,6 +48,34 @@ func (service *Service) SetUrl(original string) (*urlrepository.Url, error) {
 
 	service.logger.Infow("New url", "Original", url.OriginalUrl, "Short", url.ShortUrl)
 	return &url, nil
+}
+
+func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl) (*[]model.UrlBatch, error) {
+	urls := []model.Url{}
+	urlsBatch := []model.UrlBatch{}
+
+	lastId := service.repository.GetLastId() + 1
+	for _, bUrl := range *batchUrls {
+		url := model.Url{
+			Uuid:        lastId,
+			ShortUrl:    service.GenerateShort(),
+			OriginalUrl: bUrl.OriginalUrl,
+		}
+		urls = append(urls, url)
+		urlsBatch = append(urlsBatch, model.UrlBatch{
+			CorrelationId: bUrl.CorrelationId,
+			Url:           &url,
+		})
+
+		lastId++
+	}
+
+	errorCreate := service.repository.SaveBatch(&urls)
+	if errorCreate != nil {
+		return nil, errorCreate
+	}
+
+	return &urlsBatch, nil
 }
 
 func (service *Service) GetFullUrl(short string) (string, bool) {

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/model"
 	"go.uber.org/zap"
 )
 
@@ -66,14 +67,14 @@ func (repository *Repository) newUrlReader() (*urlFileReader, error) {
 	}, nil
 }
 
-func (reader *urlFileReader) read() (*Url, error) {
+func (reader *urlFileReader) read() (*model.Url, error) {
 	if !reader.s.Scan() {
 		return nil, reader.s.Err()
 	}
 
 	data := reader.s.Bytes()
 
-	url := Url{}
+	url := model.Url{}
 	err := json.Unmarshal(data, &url)
 	if err != nil {
 		return nil, err

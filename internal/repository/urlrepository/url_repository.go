@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/model"
 	"go.uber.org/zap"
 )
 
@@ -15,12 +16,6 @@ var ErrShortURLAlreadyExists = errors.New("short URL already exists")
 type Repository struct {
 	logger *zap.SugaredLogger
 	conn   *sql.DB
-}
-
-type Url struct {
-	Uuid        int    `json:"uuid"`
-	ShortUrl    string `json:"short_url"`
-	OriginalUrl string `json:"original_url"`
 }
 
 func NewRepository(conn *sql.DB, logger *zap.SugaredLogger) *Repository {
@@ -58,7 +53,7 @@ func (repository *Repository) InitializeStorage() error {
 
 // ЗАПИСЬ
 
-func (repository *Repository) Save(url *Url) error {
+func (repository *Repository) Save(url *model.Url) error {
 	data, err := json.Marshal(url)
 	if err != nil {
 		repository.logger.Warn("Error by add url", err)
@@ -106,6 +101,60 @@ func (repository *Repository) Save(url *Url) error {
 	return nil
 }
 
+func (repository *Repository) SaveBatch(urls *[]model.Url) error {
+	if repository.conn != nil {
+		// начинаем транзакцию
+		tx, err := repository.conn.Begin()
+		if err != nil {
+			return err
+		}
+
+		dbCtx, dbCancel := context.WithCancel(context.Background())
+		defer dbCancel()
+
+		for _, url := range *urls {
+			stmt, err := tx.PrepareContext(dbCtx, "INSERT INTO urls (id, short, original) VALUES ($1,$2,$3)")
+			if err != nil {
+				repository.logger.Warn("SQL error by prepare insert patch", err.Error())
+				return err
+			}
+			defer stmt.Close()
+
+			_, err = stmt.ExecContext(dbCtx, url.Uuid, url.ShortUrl, url.OriginalUrl)
+			if err != nil {
+				repository.logger.Warn("SQL error by insert patch", err.Error())
+				tx.Rollback()
+				return err
+			}
+		}
+		// завершаем транзакцию
+		err = tx.Commit()
+		if err != nil {
+			repository.logger.Warn("Error by transaction", err.Error())
+		}
+	}
+
+	// добавление в файл
+	creator, err := repository.newFileUrlCreator()
+	if err != nil {
+		repository.logger.Warn("Error by create creator", err.Error())
+		return err
+	}
+	defer creator.Close()
+
+	for _, url := range *urls {
+		data, err := json.Marshal(url)
+		err = creator.add(data)
+		if err != nil {
+			repository.logger.Warn("Err by write url to file")
+		}
+	}
+
+	// добавление в память
+	repository.saveLocalBatch(urls)
+	return nil
+}
+
 // ПОЛУЧЕНИЕ
 
 func (repository *Repository) GetOriginalByShort(short string) string {
@@ -122,7 +171,7 @@ func (repository *Repository) GetOriginalByShort(short string) string {
 		defer stmt.Close()
 
 		row := stmt.QueryRowContext(dbCtx, short)
-		var url Url
+		var url model.Url
 		err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			repository.logger.Fatal("SQL error by select", err.Error())
