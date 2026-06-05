@@ -137,7 +137,7 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 	for _, batchUrl := range *createdBatchUrls {
 		response = append(response, model.ResponseBatchUrl{
 			CorrelationId: batchUrl.CorrelationId,
-			ShortUrl:      batchUrl.Url.ShortUrl,
+			ShortUrl:      config.Options.AddrResp + "/" + batchUrl.Url.ShortUrl,
 		})
 	}
 
