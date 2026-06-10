@@ -83,25 +83,29 @@ func (repository *Repository) Save(url *model.Url) error {
 	}
 
 	// добавление в бд
-	repository.logger.Info("Add url to database ...")
+	if repository.conn != nil {
+		repository.logger.Info("Add url to database ...")
 
-	dbCtx, dbCancel := context.WithCancel(context.Background())
-	defer dbCancel()
+		dbCtx, dbCancel := context.WithCancel(context.Background())
+		defer dbCancel()
 
-	stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original) VALUES ($1,$2)")
-	if err != nil {
-		repository.logger.Warn("SQL error by prepare insert query", err.Error())
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl)
-	if err != nil {
-		repository.logger.Warn("SQL error by insert", err.Error())
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return ErrOriginalURLAlreadyExists
+		stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original) VALUES ($1,$2)")
+		if err != nil {
+			repository.logger.Warn("SQL error by prepare insert query", err.Error())
+			return err
 		}
+		defer stmt.Close()
+
+		_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl)
+		if err != nil {
+			repository.logger.Warn("SQL error by insert", err.Error())
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+				return ErrOriginalURLAlreadyExists
+			}
+			return err
+		}
+		return nil
 	}
 
 	// добавление в файл
@@ -123,37 +127,40 @@ func (repository *Repository) Save(url *model.Url) error {
 
 func (repository *Repository) SaveBatch(urls *[]model.Url) error {
 	// начинаем транзакцию
-	tx, err := repository.conn.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	if repository.conn != nil {
+		tx, err := repository.conn.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
 
-	dbCtx, dbCancel := context.WithCancel(context.Background())
-	defer dbCancel()
+		dbCtx, dbCancel := context.WithCancel(context.Background())
+		defer dbCancel()
 
-	valueStrings := make([]string, 0, len(*urls))
-	valueArgs := make([]interface{}, 0, len(*urls)*3)
-	i := 0
-	for _, url := range *urls {
-		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
-		valueArgs = append(valueArgs, url.ShortUrl)
-		valueArgs = append(valueArgs, url.OriginalUrl)
-		i++
-	}
-	query := fmt.Sprintf("INSERT INTO urls (short, original) VALUES %s", strings.Join(valueStrings, ","))
+		valueStrings := make([]string, 0, len(*urls))
+		valueArgs := make([]interface{}, 0, len(*urls)*3)
+		i := 0
+		for _, url := range *urls {
+			valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+			valueArgs = append(valueArgs, url.ShortUrl)
+			valueArgs = append(valueArgs, url.OriginalUrl)
+			i++
+		}
+		query := fmt.Sprintf("INSERT INTO urls (short, original) VALUES %s", strings.Join(valueStrings, ","))
 
-	stmt, err := tx.PrepareContext(dbCtx, query)
-	if err != nil {
-		repository.logger.Warn("SQL error by prepare insert patch", err.Error())
-		return err
-	}
-	defer stmt.Close()
+		stmt, err := tx.PrepareContext(dbCtx, query)
+		if err != nil {
+			repository.logger.Warn("SQL error by prepare insert patch", err.Error())
+			return err
+		}
+		defer stmt.Close()
 
-	_, err = stmt.ExecContext(dbCtx, valueArgs...)
-	if err != nil {
-		repository.logger.Warn("SQL error by insert patch", err.Error())
-		return err
+		_, err = stmt.ExecContext(dbCtx, valueArgs...)
+		if err != nil {
+			repository.logger.Warn("SQL error by insert patch", err.Error())
+			return err
+		}
+		return tx.Commit()
 	}
 
 	// добавление в файл
@@ -173,35 +180,35 @@ func (repository *Repository) SaveBatch(urls *[]model.Url) error {
 	}
 	// добавление в память
 	repository.saveLocalBatch(urls)
-
-	return tx.Commit()
+	return nil
 }
 
 // ПОЛУЧЕНИЕ
 
 func (repository *Repository) GetOriginalByShort(short string) (string, error) {
-	repository.logger.Info("Find in database ...")
+	if repository.conn != nil {
+		repository.logger.Info("Find in database ...")
 
-	dbCtx, dbCancel := context.WithCancel(context.Background())
-	defer dbCancel()
+		dbCtx, dbCancel := context.WithCancel(context.Background())
+		defer dbCancel()
 
-	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE short = $1")
-	if err != nil {
-		repository.logger.Warn("SQL error by prepare select query", err.Error())
-		return "", err
+		stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE short = $1")
+		if err != nil {
+			repository.logger.Warn("SQL error by prepare select query", err.Error())
+			return "", err
+		}
+		defer stmt.Close()
+
+		row := stmt.QueryRowContext(dbCtx, short)
+		var url model.Url
+		err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			repository.logger.Warn("SQL error by select", err.Error())
+			return "", err
+		} else if err == nil {
+			return url.OriginalUrl, nil
+		}
 	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(dbCtx, short)
-	var url model.Url
-	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		repository.logger.Warn("SQL error by select", err.Error())
-		return "", err
-	} else if err == nil {
-		return url.OriginalUrl, nil
-	}
-
 	repository.logger.Info("URL was not finded in database")
 	repository.logger.Info("Find in local storage ...")
 

@@ -35,17 +35,18 @@ func run() error {
 	}
 
 	var conn *sql.DB
-	if err := runMigrations(config.Options.DatabaseDSN); err != nil {
-		logger.Fatalw("Failed to run migrations", "error", err)
+	if config.Options.DatabaseDSN != "" {
+		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
+			logger.Fatalw("Failed to run migrations", "error", err)
+		}
+		conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
+		if err != nil {
+			return fmt.Errorf("failed to open db: %w", err)
+		}
+		if err = conn.Ping(); err != nil {
+			return fmt.Errorf("failed to ping db: %w", err)
+		}
 	}
-	conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
-	if err != nil {
-		return fmt.Errorf("failed to open db: %w", err)
-	}
-	if err = conn.Ping(); err != nil {
-		return fmt.Errorf("failed to ping db: %w", err)
-	}
-
 	repository := urlrepository.NewRepository(conn, logger)
 	service := urlservices.NewService(repository, logger)
 	handler := urlhandlers.NewHandler(service, logger)
