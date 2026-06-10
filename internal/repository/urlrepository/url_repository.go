@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
+	"sync"
 
-	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/model"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,10 +17,14 @@ import (
 
 var ErrShortURLAlreadyExists = errors.New("Short URL already exists")
 var ErrOriginalURLAlreadyExists = errors.New("Original URL already exists")
+var ErrURLNotFound = errors.New("URL is not found")
 
 type Repository struct {
-	logger *zap.SugaredLogger
-	conn   *sql.DB
+	logger     *zap.SugaredLogger
+	conn       *sql.DB
+	lastId     int
+	storageUrl map[string]model.Url
+	mutex      sync.RWMutex
 }
 
 func NewRepository(conn *sql.DB, logger *zap.SugaredLogger) *Repository {
@@ -37,6 +43,8 @@ func (repository *Repository) InitializeStorage() error {
 	}
 	defer reader.Close()
 
+	tmpLastId := 0
+	tmpStorage := make(map[string]model.Url)
 	for {
 		url, err := reader.read()
 		if url == nil {
@@ -46,9 +54,16 @@ func (repository *Repository) InitializeStorage() error {
 			return err
 		}
 
-		storageUrl[url.ShortUrl] = *url
-		lastId = url.Uuid
+		tmpStorage[url.ShortUrl] = *url
+		if tmpLastId < url.Uuid {
+			tmpLastId = url.Uuid
+		}
 	}
+
+	repository.mutex.Lock()
+	repository.storageUrl = tmpStorage
+	repository.lastId = tmpLastId
+	repository.mutex.Unlock()
 
 	repository.logger.Info("Repository is initialize")
 	return nil
@@ -63,31 +78,29 @@ func (repository *Repository) Save(url *model.Url) error {
 		return err
 	}
 
-	if _, ok := storageUrl[url.ShortUrl]; ok {
+	if _, ok := repository.storageUrl[url.ShortUrl]; ok {
 		return ErrShortURLAlreadyExists
 	}
 
 	// добавление в бд
-	if repository.conn != nil {
-		repository.logger.Info("Add url to database ...")
+	repository.logger.Info("Add url to database ...")
 
-		dbCtx, dbCancel := context.WithCancel(context.Background())
-		defer dbCancel()
+	dbCtx, dbCancel := context.WithCancel(context.Background())
+	defer dbCancel()
 
-		stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (id, short, original) VALUES ($1,$2,$3)")
-		if err != nil {
-			repository.logger.Warn("SQL error by prepare insert query", err.Error())
-			return err
-		}
-		defer stmt.Close()
+	stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original) VALUES ($1,$2)")
+	if err != nil {
+		repository.logger.Warn("SQL error by prepare insert query", err.Error())
+		return err
+	}
+	defer stmt.Close()
 
-		_, err = stmt.ExecContext(dbCtx, url.Uuid, url.ShortUrl, url.OriginalUrl)
-		if err != nil {
-			repository.logger.Warn("SQL error by insert", err.Error())
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-				return ErrOriginalURLAlreadyExists
-			}
+	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl)
+	if err != nil {
+		repository.logger.Warn("SQL error by insert", err.Error())
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			return ErrOriginalURLAlreadyExists
 		}
 	}
 
@@ -109,36 +122,38 @@ func (repository *Repository) Save(url *model.Url) error {
 }
 
 func (repository *Repository) SaveBatch(urls *[]model.Url) error {
-	if repository.conn != nil {
-		// начинаем транзакцию
-		tx, err := repository.conn.Begin()
-		if err != nil {
-			return err
-		}
+	// начинаем транзакцию
+	tx, err := repository.conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-		dbCtx, dbCancel := context.WithCancel(context.Background())
-		defer dbCancel()
+	dbCtx, dbCancel := context.WithCancel(context.Background())
+	defer dbCancel()
 
-		for _, url := range *urls {
-			stmt, err := tx.PrepareContext(dbCtx, "INSERT INTO urls (id, short, original) VALUES ($1,$2,$3)")
-			if err != nil {
-				repository.logger.Warn("SQL error by prepare insert patch", err.Error())
-				return err
-			}
-			defer stmt.Close()
+	valueStrings := make([]string, 0, len(*urls))
+	valueArgs := make([]interface{}, 0, len(*urls)*3)
+	i := 0
+	for _, url := range *urls {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		valueArgs = append(valueArgs, url.ShortUrl)
+		valueArgs = append(valueArgs, url.OriginalUrl)
+		i++
+	}
+	query := fmt.Sprintf("INSERT INTO urls (short, original) VALUES %s", strings.Join(valueStrings, ","))
 
-			_, err = stmt.ExecContext(dbCtx, url.Uuid, url.ShortUrl, url.OriginalUrl)
-			if err != nil {
-				repository.logger.Warn("SQL error by insert patch", err.Error())
-				tx.Rollback()
-				return err
-			}
-		}
-		// завершаем транзакцию
-		err = tx.Commit()
-		if err != nil {
-			repository.logger.Warn("Error by transaction", err.Error())
-		}
+	stmt, err := tx.PrepareContext(dbCtx, query)
+	if err != nil {
+		repository.logger.Warn("SQL error by prepare insert patch", err.Error())
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(dbCtx, valueArgs...)
+	if err != nil {
+		repository.logger.Warn("SQL error by insert patch", err.Error())
+		return err
 	}
 
 	// добавление в файл
@@ -156,46 +171,47 @@ func (repository *Repository) SaveBatch(urls *[]model.Url) error {
 			repository.logger.Warn("Err by write url to file")
 		}
 	}
-
 	// добавление в память
 	repository.saveLocalBatch(urls)
-	return nil
+
+	return tx.Commit()
 }
 
 // ПОЛУЧЕНИЕ
 
-func (repository *Repository) GetOriginalByShort(short string) string {
-	if repository.conn != nil {
-		repository.logger.Info("Find in database ...")
+func (repository *Repository) GetOriginalByShort(short string) (string, error) {
+	repository.logger.Info("Find in database ...")
 
-		dbCtx, dbCancel := context.WithCancel(context.Background())
-		defer dbCancel()
+	dbCtx, dbCancel := context.WithCancel(context.Background())
+	defer dbCancel()
 
-		stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE short = $1")
-		if err != nil {
-			repository.logger.Fatal("SQL error by prepare select query", err.Error())
-		}
-		defer stmt.Close()
+	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE short = $1")
+	if err != nil {
+		repository.logger.Warn("SQL error by prepare select query", err.Error())
+		return "", err
+	}
+	defer stmt.Close()
 
-		row := stmt.QueryRowContext(dbCtx, short)
-		var url model.Url
-		err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			repository.logger.Fatal("SQL error by select", err.Error())
-		} else if err == nil {
-			return url.OriginalUrl
-		}
-
-		repository.logger.Info("URL was not finded in database")
+	row := stmt.QueryRowContext(dbCtx, short)
+	var url model.Url
+	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		repository.logger.Warn("SQL error by select", err.Error())
+		return "", err
+	} else if err == nil {
+		return url.OriginalUrl, nil
 	}
 
+	repository.logger.Info("URL was not finded in database")
 	repository.logger.Info("Find in local storage ...")
 
-	url, ok := storageUrl[short]
+	repository.mutex.RLock()
+	url, ok := repository.storageUrl[short]
+	repository.mutex.RUnlock()
 	if !ok {
-		return ""
+		return "", ErrURLNotFound
 	}
-	return url.OriginalUrl
+	return url.OriginalUrl, nil
 }
 
 func (repository *Repository) GetByOriginal(original string) (*model.Url, error) {
@@ -204,7 +220,8 @@ func (repository *Repository) GetByOriginal(original string) (*model.Url, error)
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE original = $1")
 	if err != nil {
-		repository.logger.Fatal("SQL error by prepare select query", err.Error())
+		repository.logger.Warn("SQL error by prepare select query", err.Error())
+		return nil, err
 	}
 	defer stmt.Close()
 
@@ -212,19 +229,21 @@ func (repository *Repository) GetByOriginal(original string) (*model.Url, error)
 	var url model.Url
 	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
 	if err != nil {
-		repository.logger.Fatal("SQL error by select", err.Error())
+		repository.logger.Warn("SQL error by select", err.Error())
 		return nil, err
 	}
 	return &url, nil
 }
 
 func (repository *Repository) GetLastId() int {
-	return lastId
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+	return repository.lastId
 }
 
 // БД
 
 func (repository *Repository) Ping() error {
-	repository.logger.Infow("Try db connection", "db", config.Options.DatabaseDSN)
+	repository.logger.Infow("Try db connection...")
 	return repository.conn.Ping()
 }

@@ -38,7 +38,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 
 	mockRepo.EXPECT().Save(gomock.Any()).Return(nil).AnyTimes()
 	mockRepo.EXPECT().GetLastId().Return(0).AnyTimes()
-	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("http://yandex.ru").AnyTimes()
+	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("http://yandex.ru", nil).AnyTimes()
 	mockRepo.EXPECT().InitializeStorage().Return(nil).AnyTimes()
 	mockRepo.EXPECT().Ping().Return(nil).AnyTimes()
 
@@ -300,17 +300,4 @@ func TestRedirectUrl(t *testing.T) {
 
 		require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
 	})
-
-	// t.Run("not_found", func(t *testing.T) {
-	// 	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("").AnyTimes()
-
-	// 	req, err := http.NewRequest("GET", srv.URL+"/nonexistent", nil)
-	// 	require.NoError(t, err)
-
-	// 	resp, err := http.DefaultClient.Do(req)
-	// 	require.NoError(t, err)
-	// 	defer resp.Body.Close()
-
-	// 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	// })
 }

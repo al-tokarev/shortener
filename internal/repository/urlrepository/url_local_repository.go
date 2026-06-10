@@ -2,17 +2,20 @@ package urlrepository
 
 import "github.com/al-tokarev/shortener/internal/model"
 
-var storageUrl = make(map[string]model.Url)
-var lastId int
-
 func (repository *Repository) saveLocal(url *model.Url) {
-	storageUrl[url.ShortUrl] = *url
-	lastId = url.Uuid
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+
+	repository.storageUrl[url.ShortUrl] = *url
+	repository.lastId = url.Uuid
 }
 
 func (repository *Repository) saveLocalBatch(urls *[]model.Url) {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+
 	for _, url := range *urls {
-		storageUrl[url.ShortUrl] = url
-		lastId = url.Uuid
+		repository.storageUrl[url.ShortUrl] = url
+		repository.lastId = url.Uuid
 	}
 }

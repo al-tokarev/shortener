@@ -2,23 +2,23 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
+	"github.com/al-tokarev/shortener/internal/migrations"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"github.com/al-tokarev/shortener/internal/router"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -35,14 +35,15 @@ func run() error {
 	}
 
 	var conn *sql.DB
-	if config.Options.DatabaseDSN != "" {
-		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
-			logger.Fatalw("Failed to run migrations", "error", err)
-		}
-		conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
-		if err != nil {
-			logger.Info("DB connection is not success", zap.Error(err))
-		}
+	if err := runMigrations(config.Options.DatabaseDSN); err != nil {
+		logger.Fatalw("Failed to run migrations", "error", err)
+	}
+	conn, err = sql.Open("pgx", config.Options.DatabaseDSN)
+	if err != nil {
+		return fmt.Errorf("failed to open db: %w", err)
+	}
+	if err = conn.Ping(); err != nil {
+		return fmt.Errorf("failed to ping db: %w", err)
 	}
 
 	repository := urlrepository.NewRepository(conn, logger)
@@ -69,18 +70,19 @@ func run() error {
 }
 
 func runMigrations(dsn string) error {
-	_, currentFile, _, _ := runtime.Caller(0)
-	projectRoot := filepath.Join(filepath.Dir(currentFile), "../..")
-	migrationsPath := "file://" + filepath.Join(projectRoot, "migrations")
-
-	m, err := migrate.New(migrationsPath, dsn)
+	source, err := iofs.New(migrations.Files, ".")
 	if err != nil {
-		return err
+		return fmt.Errorf("create migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", source, dsn)
+	if err != nil {
+		return fmt.Errorf("create migrate: %w", err)
 	}
 	defer m.Close()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
+		return fmt.Errorf("run migrations: %w", err)
 	}
 	return nil
 }

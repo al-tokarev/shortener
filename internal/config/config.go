@@ -17,7 +17,6 @@ func RunFlags() {
 	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
 	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
 
-	// ps := "postgres://alexandr@localhost:5432/shortener?sslmode=disable"
 	flag.StringVar(&Options.DatabaseDSN, "d", "", "Database connection string")
 	flag.Parse()
 

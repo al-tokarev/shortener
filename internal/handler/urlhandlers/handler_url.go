@@ -163,9 +163,13 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	fullUrl, ok := handler.service.GetFullUrl(id)
-	if !ok {
-		http.Error(w, "URL is not found", http.StatusBadRequest)
+	fullUrl, err := handler.service.GetFullUrl(id)
+	if err != nil {
+		if errors.Is(err, urlrepository.ErrURLNotFound) {
+			http.Error(w, "URL is not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Error by find URL", http.StatusBadRequest)
+		}
 		return
 	}
 

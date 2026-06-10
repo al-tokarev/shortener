@@ -86,16 +86,13 @@ func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl) (*[]model.U
 	return &urlsBatch, nil
 }
 
-func (service *Service) GetFullUrl(short string) (string, bool) {
-	ok := false
-
-	url := service.repository.GetOriginalByShort(short)
-	if url != "" {
-		service.logger.Infow("URL is finded")
-		ok = true
+func (service *Service) GetFullUrl(short string) (string, error) {
+	url, err := service.repository.GetOriginalByShort(short)
+	if err != nil {
+		return "", err
 	}
-
-	return url, ok
+	service.logger.Infow("URL is finded")
+	return url, nil
 }
 
 func (service *Service) GenerateShort() string {
