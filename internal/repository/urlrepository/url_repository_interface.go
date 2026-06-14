@@ -1,11 +1,8 @@
-// mockgen -destination=internal/repository/urlrepository/mocks/mock_repository.go \
-//         -package=mocks \
-//         github.com/al-tokarev/shortener/internal/repository/urlrepository \
-//         RepositoryInterface
-
 package urlrepository
 
 import "github.com/al-tokarev/shortener/internal/model"
+
+//go:generate mockgen -destination=mocks/mock_repository.go -package=mocks github.com/al-tokarev/shortener/internal/repository/urlrepository RepositoryInterface
 
 type RepositoryInterface interface {
 	InitializeStorage() error

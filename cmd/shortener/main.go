@@ -35,6 +35,7 @@ func run() error {
 	}
 
 	var conn *sql.DB
+	var repository urlrepository.RepositoryInterface
 	if config.Options.DatabaseDSN != "" {
 		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
 			logger.Fatalw("Failed to run migrations", "error", err)
@@ -46,14 +47,17 @@ func run() error {
 		if err = conn.Ping(); err != nil {
 			return fmt.Errorf("failed to ping db: %w", err)
 		}
+
+		repository = urlrepository.NewDbRepository(conn, logger)
+	} else {
+		repository = urlrepository.NewLocalRepository(logger)
+		if err := repository.InitializeStorage(); err != nil {
+			logger.Fatalw("failed to initialize storage: %v", err)
+		}
 	}
-	repository := urlrepository.NewRepository(conn, logger)
+
 	service := urlservices.NewService(repository, logger)
 	handler := urlhandlers.NewHandler(service, logger)
-
-	if err := repository.InitializeStorage(); err != nil {
-		logger.Fatalw("failed to initialize storage: %v", err)
-	}
 
 	r := router.NewRouter(handler, logger)
 	server := &http.Server{
