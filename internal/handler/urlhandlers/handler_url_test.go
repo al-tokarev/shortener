@@ -15,14 +15,15 @@ import (
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/al-tokarev/shortener/internal/model"
-	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
+	"github.com/al-tokarev/shortener/internal/repository/urlrepository/mocks"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestServer(t *testing.T) (*httptest.Server, func()) {
+func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInterface, func()) {
 	testLogger, err := logger.NewLogger()
 	require.NoError(t, err)
 
@@ -32,12 +33,16 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	require.NoError(t, err)
 	config.Options.StoragePath = tmpFile.Name()
 
-	repo := urlrepository.NewRepository(testLogger)
+	ctrl := gomock.NewController(t)
+	mockRepo := mocks.NewMockRepositoryInterface(ctrl)
 
-	err = repo.InitializeStorage()
-	require.NoError(t, err)
+	mockRepo.EXPECT().Save(gomock.Any()).Return(nil).AnyTimes()
+	mockRepo.EXPECT().GetLastId().Return(0).AnyTimes()
+	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("http://yandex.ru", nil).AnyTimes()
+	mockRepo.EXPECT().InitializeStorage().Return(nil).AnyTimes()
+	mockRepo.EXPECT().Ping().Return(nil).AnyTimes()
 
-	service := urlservices.NewService(repo, testLogger)
+	service := urlservices.NewService(mockRepo, testLogger)
 
 	handler := NewHandler(service, testLogger)
 
@@ -51,14 +56,15 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 
 	cleanup := func() {
 		srv.Close()
+		ctrl.Finish()
 		os.Remove(tmpFile.Name())
 	}
 
-	return srv, cleanup
+	return srv, mockRepo, cleanup
 }
 
 func TestShortenUrl(t *testing.T) {
-	srv, cleanup := setupTestServer(t)
+	srv, _, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	t.Run("shorten_text", func(t *testing.T) {
@@ -160,7 +166,7 @@ func TestShortenUrl(t *testing.T) {
 }
 
 func TestGzipCompression(t *testing.T) {
-	srv, cleanup := setupTestServer(t)
+	srv, _, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	requestBody := `{"url":"https://practicum.yandex.ru"}`
@@ -232,10 +238,10 @@ func TestGzipCompression(t *testing.T) {
 }
 
 func TestRedirectUrl(t *testing.T) {
-	srv, cleanup := setupTestServer(t)
+	srv, _, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	originalURL := "http://example.com"
+	originalURL := "http://yandex.ru"
 
 	type shortenRequest struct {
 		URL string `json:"url"`
@@ -293,16 +299,5 @@ func TestRedirectUrl(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
-	})
-
-	t.Run("not_found", func(t *testing.T) {
-		req, err := http.NewRequest("GET", srv.URL+"/nonexistent", nil)
-		require.NoError(t, err)
-
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }

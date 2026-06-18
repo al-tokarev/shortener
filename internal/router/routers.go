@@ -17,7 +17,9 @@ func NewRouter(handler *urlhandlers.Handler, log *zap.SugaredLogger) http.Handle
 
 	r.Post("/", handler.GetShortenedUrl)
 	r.Post("/api/shorten", handler.GetJsonShortenedUrl)
+	r.Post("/api/shorten/batch", handler.GetJsonShortenedBatch)
 	r.Get("/{id}", handler.RedirectFullUrl)
+	r.Get("/ping", handler.PingHandler)
 
 	return r
 }
