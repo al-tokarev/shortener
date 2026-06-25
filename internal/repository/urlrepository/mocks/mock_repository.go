@@ -34,6 +34,20 @@ func (m *MockRepositoryInterface) EXPECT() *MockRepositoryInterfaceMockRecorder 
 	return m.recorder
 }
 
+// BatchDelete mocks base method.
+func (m *MockRepositoryInterface) BatchDelete(arg0 []string, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchDelete", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchDelete indicates an expected call of BatchDelete.
+func (mr *MockRepositoryInterfaceMockRecorder) BatchDelete(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDelete", reflect.TypeOf((*MockRepositoryInterface)(nil).BatchDelete), arg0, arg1)
+}
+
 // GetByOriginal mocks base method.
 func (m *MockRepositoryInterface) GetByOriginal(arg0 string) (*model.Url, error) {
 	m.ctrl.T.Helper()

@@ -23,6 +23,7 @@ func NewRouter(handler *urlhandlers.Handler, log *zap.SugaredLogger) http.Handle
 	r.Get("/api/user/urls", handler.GetUserURLs)
 	r.Get("/{id}", handler.RedirectFullUrl)
 	r.Get("/ping", handler.PingHandler)
+	r.Delete("/api/user/urls", handler.DeleteUserURLs)
 
 	return r
 }

@@ -9,6 +9,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type deleteTask struct {
+	shortIDs []string
+	userID   string
+}
+
 type Service struct {
 	repository urlrepository.RepositoryInterface
 	logger     *zap.SugaredLogger
@@ -107,6 +112,21 @@ func (service *Service) GenerateShort() string {
 		bytesId[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(bytesId)
+}
+
+func (s *Service) DeleteUserURLs(shortIDs []string, userID string) {
+	taskCh := make(chan deleteTask, 1)
+
+	go func() {
+		for task := range taskCh {
+			if err := s.repository.BatchDelete(task.shortIDs, task.userID); err != nil {
+				s.logger.Warn("Batch delete failed", zap.Error(err))
+			}
+		}
+	}()
+
+	taskCh <- deleteTask{shortIDs: shortIDs, userID: userID}
+	close(taskCh)
 }
 
 func (service *Service) PingDb() error {

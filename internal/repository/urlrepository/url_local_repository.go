@@ -169,6 +169,19 @@ func (repository *LocalRepository) GetUserURLs(userID string) (*[]model.Url, err
 	return &urls, nil
 }
 
+func (repository *LocalRepository) BatchDelete(shortIDs []string, userID string) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+
+	for _, shortID := range shortIDs {
+		if url, ok := repository.storageUrl[shortID]; ok && url.UserID == userID {
+			url.IsDeleted = true
+			repository.storageUrl[shortID] = url
+		}
+	}
+	return nil
+}
+
 func (repository *LocalRepository) GetLastId() int {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()

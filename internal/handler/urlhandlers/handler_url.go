@@ -215,6 +215,35 @@ func (handler *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (handler *Handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	var shortIDs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
+		handler.logger.Warn("Failed to decode delete request", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if len(shortIDs) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	handler.service.DeleteUserURLs(shortIDs, userID)
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -222,6 +251,8 @@ func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if errors.Is(err, urlrepository.ErrURLNotFound) {
 			http.Error(w, "URL is not found", http.StatusNotFound)
+		} else if errors.Is(err, urlrepository.ErrURLDeleted) {
+			http.Error(w, "URL is deleted", http.StatusGone)
 		} else {
 			http.Error(w, "Error by find URL", http.StatusBadRequest)
 		}

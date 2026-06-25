@@ -16,6 +16,7 @@ import (
 var ErrShortURLAlreadyExists = errors.New("Short URL already exists")
 var ErrOriginalURLAlreadyExists = errors.New("Original URL already exists")
 var ErrURLNotFound = errors.New("URL is not found")
+var ErrURLDeleted = errors.New("URL is deleted")
 
 type DbRepository struct {
 	logger *zap.SugaredLogger
@@ -105,7 +106,7 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
 
-	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE short = $1")
+	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original,is_deleted FROM urls WHERE short = $1")
 	if err != nil {
 		repository.logger.Warn("SQL error by prepare select query", err.Error())
 		return "", err
@@ -114,7 +115,7 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 
 	row := stmt.QueryRowContext(dbCtx, short)
 	var url model.Url
-	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
+	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl, &url.IsDeleted)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrURLNotFound
@@ -122,6 +123,11 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 		repository.logger.Warn("SQL error by select", err.Error())
 		return "", err
 	}
+
+	if url.IsDeleted {
+		return "", ErrURLDeleted
+	}
+
 	return url.OriginalUrl, nil
 }
 
@@ -187,7 +193,45 @@ func (repository *DbRepository) GetLastId() int {
 	return 0
 }
 
-// БД
+func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) error {
+	if len(shortIDs) == 0 {
+		return nil
+	}
+
+	dbCtx, dbCancel := context.WithCancel(context.Background())
+	defer dbCancel()
+
+	placeholders := make([]string, len(shortIDs))
+	args := make([]interface{}, 0, len(shortIDs)*2)
+
+	for i, shortID := range shortIDs {
+		placeholders[i] = fmt.Sprintf("(short = $%d AND user_id = $%d)", i*2+1, i*2+2)
+		args = append(args, shortID, userID)
+	}
+
+	query := fmt.Sprintf(`
+        UPDATE urls 
+        SET is_deleted = true 
+        WHERE %s
+    `, strings.Join(placeholders, " OR "))
+
+	stmt, err := repository.conn.PrepareContext(dbCtx, query)
+	if err != nil {
+		repository.logger.Warn("Batch delete failed", zap.Error(err))
+		return err
+	}
+
+	result, err := stmt.ExecContext(dbCtx, args...)
+	if err != nil {
+		repository.logger.Warn("Batch delete failed", zap.Error(err))
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	repository.logger.Infow("Batch delete completed", "rows_affected", rowsAffected)
+
+	return nil
+}
 
 func (repository *DbRepository) Ping() error {
 	repository.logger.Infow("Try db connection...")

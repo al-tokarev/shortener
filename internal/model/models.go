@@ -5,6 +5,7 @@ type Url struct {
 	ShortUrl    string `json:"short_url"`
 	OriginalUrl string `json:"original_url"`
 	UserID      string `json:"user_id"`
+	IsDeleted   bool   `json:"is_deleted"`
 }
 
 type UrlBatch struct {
