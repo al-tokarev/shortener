@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/al-tokarev/shortener/internal/auth"
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/model"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
@@ -47,7 +48,13 @@ func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	createdUrl, err := handler.service.SetUrl(string(body))
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	createdUrl, err := handler.service.SetUrl(string(body), userID)
 	if err != nil {
 		handler.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -85,7 +92,13 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	createdUrl, err := handler.service.SetUrl(request.Url)
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	createdUrl, err := handler.service.SetUrl(request.Url, userID)
 	if err != nil && !errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
 		handler.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -132,7 +145,13 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	createdBatchUrls, err := handler.service.SetBatch(&request)
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	createdBatchUrls, err := handler.service.SetBatch(&request, userID)
 	if err != nil {
 		handler.logger.Debug("Err by add batch", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -153,6 +172,42 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 
 	enc := json.NewEncoder(w)
 	w.WriteHeader(http.StatusCreated)
+	if err := enc.Encode(response); err != nil {
+		handler.logger.Warn("Err response encode", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
+func (handler *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := handler.service.GetUserURLs(userID)
+	if err != nil {
+		handler.logger.Warn("Failed to get user URLs", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if len(*urls) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	response := []model.ResponseUserUrl{}
+	for _, url := range *urls {
+		response = append(response, model.ResponseUserUrl{
+			OriginalUrl: url.OriginalUrl,
+			ShortUrl:    config.Options.AddrResp + "/" + url.ShortUrl,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	w.WriteHeader(http.StatusOK)
 	if err := enc.Encode(response); err != nil {
 		handler.logger.Warn("Err response encode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)

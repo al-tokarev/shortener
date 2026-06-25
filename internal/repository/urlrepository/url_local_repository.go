@@ -152,6 +152,23 @@ func (repository *LocalRepository) GetByOriginal(original string) (*model.Url, e
 	return nil, ErrURLNotFound
 }
 
+func (repository *LocalRepository) GetUserURLs(userID string) (*[]model.Url, error) {
+	repository.logger.Infow("Get user URLs from local storage", "user_id", userID)
+
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+
+	var urls []model.Url
+	for _, url := range repository.storageUrl {
+		if url.UserID == userID {
+			urls = append(urls, url)
+		}
+	}
+
+	repository.logger.Infow("User URLs found", "count", len(urls))
+	return &urls, nil
+}
+
 func (repository *LocalRepository) GetLastId() int {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()

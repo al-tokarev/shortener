@@ -17,7 +17,7 @@ func RunFlags() {
 	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
 	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
 
-	flag.StringVar(&Options.DatabaseDSN, "d", "", "Database connection string")
+	flag.StringVar(&Options.DatabaseDSN, "d", "postgres://alexandr@localhost:5432/shortener?sslmode=disable", "Database connection string")
 	flag.Parse()
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {

@@ -10,6 +10,7 @@ type RepositoryInterface interface {
 	SaveBatch(urls *[]model.Url) error
 	GetOriginalByShort(short string) (string, error)
 	GetByOriginal(original string) (*model.Url, error)
+	GetUserURLs(userID string) (*[]model.Url, error)
 	GetLastId() int
 	Ping() error
 }

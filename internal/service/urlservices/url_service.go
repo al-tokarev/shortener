@@ -21,9 +21,7 @@ func NewService(repository urlrepository.RepositoryInterface, logger *zap.Sugare
 	}
 }
 
-func (service *Service) SetUrl(original string) (*model.Url, error) {
-	// service.logger.Infow("Create new url", "short", short, "original", original)
-
+func (service *Service) SetUrl(original string, userID string) (*model.Url, error) {
 	const maxAttempts = 10
 	currentAttempt := 1
 	var url model.Url
@@ -33,6 +31,7 @@ func (service *Service) SetUrl(original string) (*model.Url, error) {
 			Uuid:        service.repository.GetLastId() + 1,
 			ShortUrl:    service.GenerateShort(),
 			OriginalUrl: original,
+			UserID:      userID,
 		}
 		errorCreate = service.repository.Save(&url)
 		if errors.Is(errorCreate, urlrepository.ErrShortURLAlreadyExists) {
@@ -58,7 +57,12 @@ func (service *Service) SetUrl(original string) (*model.Url, error) {
 	return &url, nil
 }
 
-func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl) (*[]model.UrlBatch, error) {
+func (service *Service) GetUserURLs(userID string) (*[]model.Url, error) {
+	service.logger.Infow("Getting user URLs", "user_id", userID)
+	return service.repository.GetUserURLs(userID)
+}
+
+func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
 	urls := []model.Url{}
 	urlsBatch := []model.UrlBatch{}
 
@@ -68,6 +72,7 @@ func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl) (*[]model.U
 			Uuid:        lastId,
 			ShortUrl:    service.GenerateShort(),
 			OriginalUrl: bUrl.OriginalUrl,
+			UserID:      userID,
 		}
 		urls = append(urls, url)
 		urlsBatch = append(urlsBatch, model.UrlBatch{

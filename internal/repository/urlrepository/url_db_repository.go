@@ -41,14 +41,14 @@ func (repository *DbRepository) Save(url *model.Url) error {
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
 
-	stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original) VALUES ($1,$2)")
+	stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original, user_id) VALUES ($1,$2,$3)")
 	if err != nil {
 		repository.logger.Warn("SQL error by prepare insert query", err.Error())
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl)
+	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl, url.UserID)
 	if err != nil {
 		repository.logger.Warn("SQL error by insert", err.Error())
 		var pgErr *pgconn.PgError
@@ -74,12 +74,13 @@ func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 	valueArgs := make([]interface{}, 0, len(*urls)*3)
 	i := 0
 	for _, url := range *urls {
-		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
 		valueArgs = append(valueArgs, url.ShortUrl)
 		valueArgs = append(valueArgs, url.OriginalUrl)
+		valueArgs = append(valueArgs, url.UserID)
 		i++
 	}
-	query := fmt.Sprintf("INSERT INTO urls (short, original) VALUES %s", strings.Join(valueStrings, ","))
+	query := fmt.Sprintf("INSERT INTO urls (short, original, user_id) VALUES %s", strings.Join(valueStrings, ","))
 
 	stmt, err := tx.PrepareContext(dbCtx, query)
 	if err != nil {
@@ -143,6 +144,43 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 		return nil, err
 	}
 	return &url, nil
+}
+
+func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error) {
+	dbCtx, dbCancel := context.WithCancel(context.Background())
+	defer dbCancel()
+
+	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT short, original FROM urls WHERE user_id = $1 ORDER BY id DESC")
+	if err != nil {
+		repository.logger.Warn("SQL error by prepare select user urls", zap.Error(err))
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(dbCtx, userID)
+	if err != nil {
+		repository.logger.Warn("SQL error by select user urls", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	var urls []model.Url
+	for rows.Next() {
+		var userURL model.Url
+		err := rows.Scan(&userURL.ShortUrl, &userURL.OriginalUrl)
+		if err != nil {
+			repository.logger.Warn("SQL error by scan user urls", zap.Error(err))
+			return nil, err
+		}
+		urls = append(urls, userURL)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	repository.logger.Infow("User URLs found", "count", len(urls))
+	return &urls, nil
 }
 
 func (repository *DbRepository) GetLastId() int {
