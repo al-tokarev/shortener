@@ -1,1 +1,0 @@
-CREATE INDEX idx_urls_user_id ON urls(user_id);

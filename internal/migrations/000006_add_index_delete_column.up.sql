@@ -1,1 +1,0 @@
-CREATE INDEX idx_urls_is_deleted ON urls(is_deleted);

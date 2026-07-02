@@ -44,14 +44,12 @@ func (repository *DbRepository) Save(url *model.Url) error {
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, "INSERT INTO urls (short, original, user_id) VALUES ($1,$2,$3)")
 	if err != nil {
-		repository.logger.Warn("SQL error by prepare insert query", err.Error())
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl, url.UserID)
 	if err != nil {
-		repository.logger.Warn("SQL error by insert", err.Error())
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			return ErrOriginalURLAlreadyExists
@@ -85,14 +83,12 @@ func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 
 	stmt, err := tx.PrepareContext(dbCtx, query)
 	if err != nil {
-		repository.logger.Warn("SQL error by prepare insert patch", err.Error())
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(dbCtx, valueArgs...)
 	if err != nil {
-		repository.logger.Warn("SQL error by insert patch", err.Error())
 		return err
 	}
 	return tx.Commit()
@@ -108,7 +104,6 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original,is_deleted FROM urls WHERE short = $1")
 	if err != nil {
-		repository.logger.Warn("SQL error by prepare select query", err.Error())
 		return "", err
 	}
 	defer stmt.Close()
@@ -120,7 +115,6 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrURLNotFound
 		}
-		repository.logger.Warn("SQL error by select", err.Error())
 		return "", err
 	}
 
@@ -137,7 +131,6 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT id,short,original FROM urls WHERE original = $1")
 	if err != nil {
-		repository.logger.Warn("SQL error by prepare select query", err.Error())
 		return nil, err
 	}
 	defer stmt.Close()
@@ -146,7 +139,6 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 	var url model.Url
 	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
 	if err != nil {
-		repository.logger.Warn("SQL error by select", err.Error())
 		return nil, err
 	}
 	return &url, nil
@@ -158,14 +150,12 @@ func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error)
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, "SELECT short, original FROM urls WHERE user_id = $1 ORDER BY id DESC")
 	if err != nil {
-		repository.logger.Warn("SQL error by prepare select user urls", zap.Error(err))
 		return nil, err
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(dbCtx, userID)
 	if err != nil {
-		repository.logger.Warn("SQL error by select user urls", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -175,7 +165,6 @@ func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error)
 		var userURL model.Url
 		err := rows.Scan(&userURL.ShortUrl, &userURL.OriginalUrl)
 		if err != nil {
-			repository.logger.Warn("SQL error by scan user urls", zap.Error(err))
 			return nil, err
 		}
 		urls = append(urls, userURL)
@@ -217,15 +206,14 @@ func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) er
 
 	stmt, err := repository.conn.PrepareContext(dbCtx, query)
 	if err != nil {
-		repository.logger.Warn("Batch delete failed", zap.Error(err))
 		return err
 	}
 
 	result, err := stmt.ExecContext(dbCtx, args...)
 	if err != nil {
-		repository.logger.Warn("Batch delete failed", zap.Error(err))
 		return err
 	}
+	defer stmt.Close()
 
 	rowsAffected, _ := result.RowsAffected()
 	repository.logger.Infow("Batch delete completed", "rows_affected", rowsAffected)
