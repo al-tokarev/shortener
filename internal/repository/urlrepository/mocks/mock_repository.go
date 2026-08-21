@@ -34,6 +34,20 @@ func (m *MockRepositoryInterface) EXPECT() *MockRepositoryInterfaceMockRecorder 
 	return m.recorder
 }
 
+// BatchDelete mocks base method.
+func (m *MockRepositoryInterface) BatchDelete(arg0 []string, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchDelete", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchDelete indicates an expected call of BatchDelete.
+func (mr *MockRepositoryInterfaceMockRecorder) BatchDelete(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDelete", reflect.TypeOf((*MockRepositoryInterface)(nil).BatchDelete), arg0, arg1)
+}
+
 // GetByOriginal mocks base method.
 func (m *MockRepositoryInterface) GetByOriginal(arg0 string) (*model.Url, error) {
 	m.ctrl.T.Helper()
@@ -76,6 +90,21 @@ func (m *MockRepositoryInterface) GetOriginalByShort(arg0 string) (string, error
 func (mr *MockRepositoryInterfaceMockRecorder) GetOriginalByShort(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalByShort", reflect.TypeOf((*MockRepositoryInterface)(nil).GetOriginalByShort), arg0)
+}
+
+// GetUserURLs mocks base method.
+func (m *MockRepositoryInterface) GetUserURLs(arg0 string) (*[]model.Url, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserURLs", arg0)
+	ret0, _ := ret[0].(*[]model.Url)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserURLs indicates an expected call of GetUserURLs.
+func (mr *MockRepositoryInterfaceMockRecorder) GetUserURLs(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserURLs", reflect.TypeOf((*MockRepositoryInterface)(nil).GetUserURLs), arg0)
 }
 
 // InitializeStorage mocks base method.

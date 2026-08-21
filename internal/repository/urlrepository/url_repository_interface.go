@@ -8,8 +8,10 @@ type RepositoryInterface interface {
 	InitializeStorage() error
 	Save(url *model.Url) error
 	SaveBatch(urls *[]model.Url) error
+	BatchDelete(shortIDs []string, userID string) error
 	GetOriginalByShort(short string) (string, error)
 	GetByOriginal(original string) (*model.Url, error)
+	GetUserURLs(userID string) (*[]model.Url, error)
 	GetLastId() int
 	Ping() error
 }

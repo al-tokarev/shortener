@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 
+	"github.com/al-tokarev/shortener/internal/auth"
 	"github.com/al-tokarev/shortener/internal/compress"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
@@ -14,12 +15,15 @@ func NewRouter(handler *urlhandlers.Handler, log *zap.SugaredLogger) http.Handle
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging(log))
 	r.Use(compress.GzipMiddleware(log))
+	r.Use(auth.AuthMiddleware)
 
 	r.Post("/", handler.GetShortenedUrl)
 	r.Post("/api/shorten", handler.GetJsonShortenedUrl)
 	r.Post("/api/shorten/batch", handler.GetJsonShortenedBatch)
+	r.Get("/api/user/urls", handler.GetUserURLs)
 	r.Get("/{id}", handler.RedirectFullUrl)
 	r.Get("/ping", handler.PingHandler)
+	r.Delete("/api/user/urls", handler.DeleteUserURLs)
 
 	return r
 }

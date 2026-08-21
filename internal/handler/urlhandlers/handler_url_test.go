@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/al-tokarev/shortener/internal/auth"
 	"github.com/al-tokarev/shortener/internal/compress"
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/logger"
@@ -48,6 +49,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 
 	r := chi.NewRouter()
 	r.Use(compress.GzipMiddleware(testLogger))
+	r.Use(auth.AuthMiddleware)
 	r.Post("/", handler.GetShortenedUrl)
 	r.Post("/api/shorten", handler.GetJsonShortenedUrl)
 	r.Get("/{id}", handler.RedirectFullUrl)
