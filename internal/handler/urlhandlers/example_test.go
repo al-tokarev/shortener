@@ -29,7 +29,7 @@ func ExampleHandler_GetShortenedUrl() {
 
 // Example_GetJsonShortenedUrl демонстрирует запрос на создание короткой ссылки через JSON.
 func ExampleHandler_GetJsonShortenedUrl() {
-	jsonBody := `{"url": "https://example.com/very/long/url"}`
+	jsonBody := `{"url": "https://example.com"}`
 
 	req := httptest.NewRequest(
 		http.MethodPost,
