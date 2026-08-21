@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/al-tokarev/shortener/internal/migrations"
+	"github.com/al-tokarev/shortener/internal/observer"
+	"github.com/al-tokarev/shortener/internal/observer/listeners/audit_listeners"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"github.com/al-tokarev/shortener/internal/router"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
@@ -22,6 +27,13 @@ import (
 )
 
 func main() {
+	go func() {
+		log.Println("pprof server starting on :6060")
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	runtime.GC()
+
 	if err := run(); err != nil {
 		log.Fatal(err.Error())
 	}
@@ -33,6 +45,9 @@ func run() error {
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
+
+	dispatcher := observer.NewDispatcher()
+	registerEvents(dispatcher)
 
 	var conn *sql.DB
 	var repository urlrepository.RepositoryInterface
@@ -57,7 +72,7 @@ func run() error {
 	}
 
 	service := urlservices.NewService(repository, logger)
-	handler := urlhandlers.NewHandler(service, logger)
+	handler := urlhandlers.NewHandler(service, dispatcher, logger)
 
 	r := router.NewRouter(handler, logger)
 	server := &http.Server{
@@ -90,4 +105,19 @@ func runMigrations(dsn string) error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 	return nil
+}
+
+func registerEvents(d *observer.Dispatcher) {
+	if config.Options.AuditFile != "" {
+		auditFileListener := audit_listeners.AuditFileListener{
+			Path: config.Options.AuditFile,
+		}
+		d.Subscribe("audit", auditFileListener)
+	}
+	if config.Options.AuditURL != "" {
+		auditURLListener := audit_listeners.AuditURLListener{
+			URL: config.Options.AuditURL,
+		}
+		d.Subscribe("audit", auditURLListener)
+	}
 }

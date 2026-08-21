@@ -1,3 +1,4 @@
+// пакет router определяет список маршрутов приложения
 package router
 
 import (
@@ -11,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewRouter возвращает хендлер по требуему эндпоинту
 func NewRouter(handler *urlhandlers.Handler, log *zap.SugaredLogger) http.Handler {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging(log))

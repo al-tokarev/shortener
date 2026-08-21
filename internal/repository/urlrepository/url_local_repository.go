@@ -14,7 +14,8 @@ import (
 type LocalRepository struct {
 	logger     *zap.SugaredLogger
 	lastId     int
-	storageUrl map[string]model.Url
+	storageUrl map[string]*model.Url
+	creator    *urlFileCreator
 	mutex      sync.RWMutex
 }
 
@@ -33,8 +34,14 @@ func (repository *LocalRepository) InitializeStorage() error {
 	}
 	defer reader.Close()
 
+	creator, err := repository.newFileUrlCreator()
+	if err != nil {
+		return err
+	}
+	repository.creator = creator
+
 	tmpLastId := 0
-	tmpStorage := make(map[string]model.Url)
+	tmpStorage := make(map[string]*model.Url)
 	for {
 		url, err := reader.read()
 		if url == nil {
@@ -44,7 +51,7 @@ func (repository *LocalRepository) InitializeStorage() error {
 			return err
 		}
 
-		tmpStorage[url.ShortUrl] = *url
+		tmpStorage[url.ShortUrl] = url
 		if tmpLastId < url.Uuid {
 			tmpLastId = url.Uuid
 		}
@@ -68,64 +75,45 @@ func (repository *LocalRepository) Save(url *model.Url) error {
 		return err
 	}
 
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+
 	if _, ok := repository.storageUrl[url.ShortUrl]; ok {
 		return ErrShortURLAlreadyExists
 	}
 
-	// добавление в файл
-	creator, err := repository.newFileUrlCreator()
-	if err != nil {
-		repository.logger.Warn("Error by create creator", err.Error())
-		return err
-	}
-	defer creator.Close()
-	err = creator.add(data)
+	err = repository.creator.add(data)
 	if err != nil {
 		repository.logger.Warn("Err by write url to file")
 	}
 
 	// добавление в память
-	repository.saveLocal(url)
+	repository.storageUrl[url.ShortUrl] = url
+	repository.lastId = url.Uuid
 	return nil
 }
 
 func (repository *LocalRepository) SaveBatch(urls *[]model.Url) error {
-	// добавление в файл
-	creator, err := repository.newFileUrlCreator()
-	if err != nil {
-		repository.logger.Warn("Error by create creator", err.Error())
-		return err
-	}
-	defer creator.Close()
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 
-	for _, url := range *urls {
+	for i := range *urls {
+		url := &(*urls)[i]
+
 		data, err := json.Marshal(url)
-		err = creator.add(data)
 		if err != nil {
-			repository.logger.Warn("Err by write url to file")
+			return err
 		}
-	}
-	// добавление в память
-	repository.saveLocalBatch(urls)
-	return nil
-}
 
-func (repository *LocalRepository) saveLocal(url *model.Url) {
-	repository.mutex.Lock()
-	defer repository.mutex.Unlock()
+		if err := repository.creator.add(data); err != nil {
+			return err
+		}
 
-	repository.storageUrl[url.ShortUrl] = *url
-	repository.lastId = url.Uuid
-}
-
-func (repository *LocalRepository) saveLocalBatch(urls *[]model.Url) {
-	repository.mutex.Lock()
-	defer repository.mutex.Unlock()
-
-	for _, url := range *urls {
 		repository.storageUrl[url.ShortUrl] = url
 		repository.lastId = url.Uuid
 	}
+
+	return nil
 }
 
 // ПОЛУЧЕНИЕ
@@ -146,7 +134,7 @@ func (repository *LocalRepository) GetByOriginal(original string) (*model.Url, e
 
 	for _, url := range repository.storageUrl {
 		if url.OriginalUrl == original {
-			return &url, nil
+			return url, nil
 		}
 	}
 	return nil, ErrURLNotFound
@@ -161,7 +149,7 @@ func (repository *LocalRepository) GetUserURLs(userID string) (*[]model.Url, err
 	var urls []model.Url
 	for _, url := range repository.storageUrl {
 		if url.UserID == userID {
-			urls = append(urls, url)
+			urls = append(urls, *url)
 		}
 	}
 

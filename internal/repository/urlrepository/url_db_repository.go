@@ -1,3 +1,5 @@
+// Package urlrepository содержит реализации репозиториев для работы с URL.
+// Предоставляет интерфейсы и реализации для хранения ссылок в памяти и базе данных.
 package urlrepository
 
 import (
@@ -13,16 +15,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrShortURLAlreadyExists возвращается при попытке создать ссылку с уже существующим коротким идентификатором.
 var ErrShortURLAlreadyExists = errors.New("Short URL already exists")
+
+// ErrOriginalURLAlreadyExists возвращается при попытке создать ссылку с уже существующим оригинальным URL.
 var ErrOriginalURLAlreadyExists = errors.New("Original URL already exists")
+
+// ErrURLNotFound возвращается когда запрашиваемая ссылка не найдена.
 var ErrURLNotFound = errors.New("URL is not found")
+
+// ErrURLDeleted возвращается при попытке получить удаленную ссылку.
 var ErrURLDeleted = errors.New("URL is deleted")
 
+// DbRepository реализует RepositoryInterface для работы с PostgreSQL.
+// Хранит подключение к базе данных и логгер.
 type DbRepository struct {
 	logger *zap.SugaredLogger
 	conn   *sql.DB
 }
 
+// NewDbRepository создает новый экземпляр DbRepository.
+// Принимает подключение к базе данных и логгер.
 func NewDbRepository(conn *sql.DB, logger *zap.SugaredLogger) *DbRepository {
 	return &DbRepository{
 		logger: logger.With(zap.String("component", "repository")),
@@ -30,12 +43,17 @@ func NewDbRepository(conn *sql.DB, logger *zap.SugaredLogger) *DbRepository {
 	}
 }
 
+// InitializeStorage инициализирует хранилище.
+// Для базы данных не требует действий, всегда возвращает nil.
 func (repository *DbRepository) InitializeStorage() error {
 	return nil
 }
 
 // ЗАПИСЬ
 
+// Save сохраняет новую короткую ссылку в базе данных.
+// Принимает модель Url для сохранения.
+// Возвращает ErrOriginalURLAlreadyExists если оригинальный URL уже существует.
 func (repository *DbRepository) Save(url *model.Url) error {
 	repository.logger.Info("Add url to database ...")
 
@@ -59,6 +77,9 @@ func (repository *DbRepository) Save(url *model.Url) error {
 	return nil
 }
 
+// SaveBatch сохраняет несколько коротких ссылок в базе данных одной транзакцией.
+// Принимает слайс URL для сохранения.
+// Возвращает ошибку если транзакция не удалась.
 func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 	tx, err := repository.conn.Begin()
 	if err != nil {
@@ -96,6 +117,11 @@ func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 
 // ПОЛУЧЕНИЕ
 
+// GetOriginalByShort возвращает оригинальный URL по короткому идентификатору.
+// Принимает короткий идентификатор ссылки.
+// Возвращает оригинальный URL или ошибку:
+//   - ErrURLNotFound если ссылка не найдена
+//   - ErrURLDeleted если ссылка удалена
 func (repository *DbRepository) GetOriginalByShort(short string) (string, error) {
 	repository.logger.Info("Find in database ...")
 
@@ -125,6 +151,9 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 	return url.OriginalUrl, nil
 }
 
+// GetByOriginal возвращает модель Url по оригинальному URL.
+// Принимает оригинальный URL для поиска.
+// Возвращает найденную модель или ошибку.
 func (repository *DbRepository) GetByOriginal(original string) (*model.Url, error) {
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
@@ -144,6 +173,9 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 	return &url, nil
 }
 
+// GetUserURLs возвращает все ссылки, созданные пользователем.
+// Принимает идентификатор пользователя.
+// Возвращает слайс URL или ошибку.
 func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error) {
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
@@ -178,10 +210,15 @@ func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error)
 	return &urls, nil
 }
 
+// GetLastId возвращает последний использованный идентификатор.
+// Для базы данных всегда возвращает 0, так как ID генерируется автоматически.
 func (repository *DbRepository) GetLastId() int {
 	return 0
 }
 
+// BatchDelete помечает несколько ссылок как удаленные.
+// Принимает список коротких идентификаторов и идентификатор пользователя.
+// Возвращает ошибку если обновление не удалось.
 func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) error {
 	if len(shortIDs) == 0 {
 		return nil
@@ -221,6 +258,8 @@ func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) er
 	return nil
 }
 
+// Ping проверяет доступность базы данных.
+// Возвращает ошибку если база данных недоступна.
 func (repository *DbRepository) Ping() error {
 	repository.logger.Infow("Try db connection...")
 	return repository.conn.Ping()

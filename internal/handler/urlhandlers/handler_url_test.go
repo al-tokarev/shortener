@@ -16,6 +16,7 @@ import (
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/al-tokarev/shortener/internal/model"
+	"github.com/al-tokarev/shortener/internal/observer"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository/mocks"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
@@ -45,7 +46,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 
 	service := urlservices.NewService(mockRepo, testLogger)
 
-	handler := NewHandler(service, testLogger)
+	dispatcher := observer.NewDispatcher()
+	handler := NewHandler(service, dispatcher, testLogger)
 
 	r := chi.NewRouter()
 	r.Use(compress.GzipMiddleware(testLogger))
