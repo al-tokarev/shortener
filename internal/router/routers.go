@@ -6,26 +6,26 @@ import (
 
 	"github.com/al-tokarev/shortener/internal/auth"
 	"github.com/al-tokarev/shortener/internal/compress"
-	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
+	"github.com/al-tokarev/shortener/internal/handler"
 	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/go-chi/chi"
 	"go.uber.org/zap"
 )
 
 // NewRouter возвращает хендлер по требуему эндпоинту
-func NewRouter(handler *urlhandlers.Handler, log *zap.SugaredLogger) http.Handler {
+func NewRouter(handler *handler.Handler, log *zap.SugaredLogger) http.Handler {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging(log))
 	r.Use(compress.GzipMiddleware(log))
 	r.Use(auth.AuthMiddleware)
 
-	r.Post("/", handler.GetShortenedUrl)
-	r.Post("/api/shorten", handler.GetJsonShortenedUrl)
-	r.Post("/api/shorten/batch", handler.GetJsonShortenedBatch)
-	r.Get("/api/user/urls", handler.GetUserURLs)
-	r.Get("/{id}", handler.RedirectFullUrl)
-	r.Get("/ping", handler.PingHandler)
-	r.Delete("/api/user/urls", handler.DeleteUserURLs)
+	r.Post("/", handler.URLHandler.GetShortenedUrl)
+	r.Post("/api/shorten", handler.URLHandler.GetJsonShortenedUrl)
+	r.Post("/api/shorten/batch", handler.URLHandler.GetJsonShortenedBatch)
+	r.Get("/api/user/urls", handler.URLHandler.GetUserURLs)
+	r.Get("/{id}", handler.URLHandler.RedirectFullUrl)
+	r.Get("/ping", handler.URLHandler.PingHandler)
+	r.Delete("/api/user/urls", handler.URLHandler.DeleteUserURLs)
 
 	return r
 }

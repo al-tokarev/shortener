@@ -14,7 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-func setupBenchmarkHandler(b *testing.B) (*Handler, func()) {
+func setupBenchmarkHandler(b *testing.B) (*URLHandler, func()) {
 	testLogger, err := logger.NewLogger()
 	if err != nil {
 		b.Fatal(err)
@@ -39,7 +39,7 @@ func setupBenchmarkHandler(b *testing.B) (*Handler, func()) {
 	mockRepo.EXPECT().Ping().Return(nil).AnyTimes()
 
 	service := urlservices.NewService(mockRepo, testLogger)
-	dispatcher := observer.NewDispatcher()
+	dispatcher := observer.NewDispatcher(testLogger)
 	handler := NewHandler(service, dispatcher, testLogger)
 
 	cleanup := func() {
@@ -57,7 +57,7 @@ func BenchmarkGetShortenedUrl(b *testing.B) {
 	body := []byte("https://example.com")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest("POST", "/", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "text/plain")
 		w := httptest.NewRecorder()
@@ -73,7 +73,7 @@ func BenchmarkGetJsonShortenedUrl(b *testing.B) {
 	request := `{"url": "https://example.com"}`
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest("POST", "/api/shorten", bytes.NewReader([]byte(request)))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -87,7 +87,7 @@ func BenchmarkRedirectFullUrl(b *testing.B) {
 	defer cleanup()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest("GET", "/abc123", nil)
 		w := httptest.NewRecorder()
 

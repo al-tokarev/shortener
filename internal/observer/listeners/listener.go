@@ -1,5 +1,6 @@
 package listeners
 
-type IListener interface {
+type Listener interface {
 	Update(event interface{}) error
+	Close() error
 }

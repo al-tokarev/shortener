@@ -46,7 +46,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 
 	service := urlservices.NewService(mockRepo, testLogger)
 
-	dispatcher := observer.NewDispatcher()
+	dispatcher := observer.NewDispatcher(testLogger)
 	handler := NewHandler(service, dispatcher, testLogger)
 
 	r := chi.NewRouter()

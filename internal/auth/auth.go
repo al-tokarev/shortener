@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +16,10 @@ const (
 )
 
 var secretKey = []byte("Sfiuewnben3243dsQWiejfvvw323j!")
+
+func SetUserIDToContext(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
+}
 
 func GenerateUserID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())

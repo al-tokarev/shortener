@@ -4,16 +4,32 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"io"
+	"time"
 
 	"github.com/al-tokarev/shortener/internal/observer/events"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type AuditURLListener struct {
-	URL string
+	url    string
+	client *retryablehttp.Client
 }
 
-func (l AuditURLListener) Update(event interface{}) error {
+func NewAuditURLListener(url string) *AuditURLListener {
+	al := AuditURLListener{
+		url:    url,
+		client: retryablehttp.NewClient(),
+	}
+	al.client.RetryMax = 3
+	al.client.RetryWaitMin = 1 * time.Second
+	al.client.RetryWaitMax = 5 * time.Second
+	al.client.HTTPClient.Timeout = 10 * time.Second
+
+	return &al
+}
+
+func (l *AuditURLListener) Update(event interface{}) error {
 	auditEvent, ok := event.(events.AuditEvent)
 	if !ok {
 		return fmt.Errorf("wrong event type")
@@ -23,17 +39,21 @@ func (l AuditURLListener) Update(event interface{}) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", l.URL, bytes.NewBuffer(eData))
+	req, err := retryablehttp.NewRequest("POST", l.url, bytes.NewBuffer(eData))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := l.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
 
+	return nil
+}
+
+func (l *AuditURLListener) Close() error {
 	return nil
 }

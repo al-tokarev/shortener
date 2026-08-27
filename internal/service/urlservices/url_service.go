@@ -21,9 +21,9 @@ type deleteTask struct {
 	userID   string
 }
 
-// Service содержит бизнес-логику для работы с короткими ссылками.
+// URLService содержит бизнес-логику для работы с короткими ссылками.
 // Управляет созданием, получением и удалением URL через репозиторий.
-type Service struct {
+type URLService struct {
 	repository urlrepository.RepositoryInterface
 	logger     *zap.SugaredLogger
 	taskCh     chan deleteTask
@@ -33,8 +33,8 @@ type Service struct {
 // NewService создает новый экземпляр Service.
 // Принимает репозиторий для работы с данными и логгер.
 // Запускает 5 воркеров для обработки задач на удаление.
-func NewService(repository urlrepository.RepositoryInterface, logger *zap.SugaredLogger) *Service {
-	s := &Service{
+func NewService(repository urlrepository.RepositoryInterface, logger *zap.SugaredLogger) URLServiceInterface {
+	s := &URLService{
 		repository: repository,
 		logger:     logger.With(zap.String("component", "service")),
 		taskCh:     make(chan deleteTask, 100),
@@ -45,7 +45,7 @@ func NewService(repository urlrepository.RepositoryInterface, logger *zap.Sugare
 }
 
 // startWorkers запускает указанное количество воркеров для обработки задач на удаление.
-func (s *Service) startWorkers(count int) {
+func (s *URLService) startWorkers(count int) {
 	for i := 0; i < count; i++ {
 		s.wg.Add(1)
 		go func(workerID int) {
@@ -58,7 +58,7 @@ func (s *Service) startWorkers(count int) {
 
 // workerLoop обрабатывает задачи на удаление из канала taskCh.
 // Каждый воркер обрабатывает задачи последовательно.
-func (s *Service) workerLoop(workerID int) {
+func (s *URLService) workerLoop(workerID int) {
 	for task := range s.taskCh {
 		if err := s.repository.BatchDelete(task.shortIDs, task.userID); err != nil {
 			s.logger.Warn("Batch delete failed",
@@ -71,7 +71,7 @@ func (s *Service) workerLoop(workerID int) {
 
 // Stop останавливает все воркеры и ожидает их завершения.
 // Закрывает канал задач и ждет окончания обработки.
-func (s *Service) Stop() {
+func (s *URLService) Stop() {
 	close(s.taskCh)
 	s.wg.Wait()
 	s.logger.Info("All delete workers stopped")
@@ -81,7 +81,7 @@ func (s *Service) Stop() {
 // Принимает оригинальный URL и идентификатор пользователя.
 // Возвращает созданную модель Url или ошибку.
 // Если оригинальный URL уже существует, возвращает существующую ссылку.
-func (service *Service) SetUrl(original string, userID string) (*model.Url, error) {
+func (service *URLService) SetUrl(original string, userID string) (*model.Url, error) {
 	const maxAttempts = 10
 	currentAttempt := 1
 	var url model.Url
@@ -120,7 +120,7 @@ func (service *Service) SetUrl(original string, userID string) (*model.Url, erro
 // GetUserURLs возвращает все ссылки, созданные пользователем.
 // Принимает идентификатор пользователя.
 // Возвращает слайс URL или ошибку.
-func (service *Service) GetUserURLs(userID string) (*[]model.Url, error) {
+func (service *URLService) GetUserURLs(userID string) (*[]model.Url, error) {
 	service.logger.Infow("Getting user URLs", "user_id", userID)
 	return service.repository.GetUserURLs(userID)
 }
@@ -128,7 +128,7 @@ func (service *Service) GetUserURLs(userID string) (*[]model.Url, error) {
 // SetBatch создает несколько коротких ссылок одновременно.
 // Принимает слайс запросов на создание и идентификатор пользователя.
 // Возвращает слайс созданных ссылок с идентификаторами корреляции.
-func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
+func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
 	urls := []model.Url{}
 	urlsBatch := []model.UrlBatch{}
 
@@ -160,7 +160,7 @@ func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl, userID stri
 // GetFullUrl возвращает оригинальный URL по короткому идентификатору.
 // Принимает короткий идентификатор ссылки.
 // Возвращает оригинальный URL или ошибку.
-func (service *Service) GetFullUrl(short string) (string, error) {
+func (service *URLService) GetFullUrl(short string) (string, error) {
 	url, err := service.repository.GetOriginalByShort(short)
 	if err != nil {
 		return "", err
@@ -172,7 +172,7 @@ func (service *Service) GetFullUrl(short string) (string, error) {
 // GenerateShort генерирует случайный короткий идентификатор.
 // Использует криптографически безопасный генератор случайных чисел.
 // Возвращает строку из 8 символов.
-func (service *Service) GenerateShort() string {
+func (service *URLService) GenerateShort() string {
 	b := make([]byte, 6)
 	if _, err := rand.Read(b); err != nil {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
@@ -183,7 +183,7 @@ func (service *Service) GenerateShort() string {
 // DeleteUserURLs добавляет задачу на удаление ссылок в очередь.
 // Принимает список коротких идентификаторов и идентификатор пользователя.
 // Задача будет обработана асинхронно одним из воркеров.
-func (s *Service) DeleteUserURLs(shortIDs []string, userID string) {
+func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 	if len(shortIDs) == 0 {
 		return
 	}
@@ -200,6 +200,6 @@ func (s *Service) DeleteUserURLs(shortIDs []string, userID string) {
 
 // PingDb проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
-func (service *Service) PingDb() error {
+func (service *URLService) PingDb() error {
 	return service.repository.Ping()
 }

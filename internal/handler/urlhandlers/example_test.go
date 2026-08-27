@@ -1,34 +1,70 @@
 package urlhandlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"github.com/al-tokarev/shortener/internal/auth"
+	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/observer"
+	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
+	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
+	"github.com/go-chi/chi"
+	"go.uber.org/zap"
 )
 
-// Example_GetShortenedUrl демонстрирует запрос на создание короткой ссылки.
-func ExampleHandler_GetShortenedUrl() {
+func setupExampleHandler() *URLHandler {
+	testLogger := zap.NewNop().Sugar()
+	config.Options.AddrResp = "http://localhost:8080"
+
+	repo := urlrepository.NewLocalRepository(testLogger)
+	repo.InitializeStorage()
+	service := urlservices.NewService(repo, testLogger)
+	dispatcher := observer.NewDispatcher(testLogger)
+
+	return NewHandler(service, dispatcher, testLogger)
+}
+
+// withChiParam добавляет параметр маршрута chi в контекст.
+func withChiParam(req *http.Request, key, value string) *http.Request {
+	chiCtx := chi.NewRouteContext()
+	chiCtx.URLParams.Add(key, value)
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, chiCtx)
+	return req.WithContext(ctx)
+}
+
+// ExampleURLHandler_GetShortenedUrl демонстрирует создание короткой ссылки.
+func ExampleURLHandler_GetShortenedUrl() {
+	handler := setupExampleHandler()
+
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/",
-		strings.NewReader("https://example.com"),
+		strings.NewReader("https://example.com/very/long/url"),
 	)
 	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set("Authorization", "user123")
+	req = req.WithContext(auth.SetUserIDToContext(req.Context(), "user123"))
 
-	fmt.Printf("Method: %s\n", req.Method)
-	fmt.Printf("Path: %s\n", req.URL.Path)
-	fmt.Printf("Content-Type: %s\n", req.Header.Get("Content-Type"))
+	w := httptest.NewRecorder()
+	handler.GetShortenedUrl(w, req)
+
+	fmt.Println("Status:", w.Code)
+	fmt.Println("Content-Type:", w.Header().Get("Content-Type"))
+	fmt.Println("HasPrefix:", strings.HasPrefix(w.Body.String(), "http://localhost:8080/"))
 
 	// Output:
-	// Method: POST
-	// Path: /
+	// Status: 201
 	// Content-Type: text/plain
+	// HasPrefix: true
 }
 
-// Example_GetJsonShortenedUrl демонстрирует запрос на создание короткой ссылки через JSON.
-func ExampleHandler_GetJsonShortenedUrl() {
+// ExampleURLHandler_GetJsonShortenedUrl демонстрирует создание короткой ссылки через JSON.
+func ExampleURLHandler_GetJsonShortenedUrl() {
+	handler := setupExampleHandler()
+
 	jsonBody := `{"url": "https://example.com"}`
 
 	req := httptest.NewRequest(
@@ -37,34 +73,49 @@ func ExampleHandler_GetJsonShortenedUrl() {
 		strings.NewReader(jsonBody),
 	)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "user123")
+	req = req.WithContext(auth.SetUserIDToContext(req.Context(), "user456"))
 
-	fmt.Printf("Method: %s\n", req.Method)
-	fmt.Printf("Path: %s\n", req.URL.Path)
-	fmt.Printf("Content-Type: %s\n", req.Header.Get("Content-Type"))
-	fmt.Printf("Body: %s\n", jsonBody)
+	w := httptest.NewRecorder()
+	handler.GetJsonShortenedUrl(w, req)
+
+	fmt.Println("Status:", w.Code)
+	fmt.Println("Content-Type:", w.Header().Get("Content-Type"))
+	fmt.Println("HasResult:", strings.Contains(w.Body.String(), "result"))
 
 	// Output:
-	// Method: POST
-	// Path: /api/shorten
+	// Status: 201
 	// Content-Type: application/json
-	// Body: {"url": "https://example.com"}
+	// HasResult: true
 }
 
-// Example_RedirectFullUrl демонстрирует переход по короткой ссылке.
-func ExampleHandler_RedirectFullUrl() {
-	req := httptest.NewRequest(
-		http.MethodGet,
-		"/abc12345",
-		nil,
-	)
+// ExampleURLHandler_RedirectFullUrl демонстрирует переход по короткой ссылке.
+func ExampleURLHandler_RedirectFullUrl() {
+	handler := setupExampleHandler()
 
-	fmt.Printf("Method: %s\n", req.Method)
-	fmt.Printf("Path: %s\n", req.URL.Path)
-	fmt.Printf("Short ID: %s\n", "abc12345")
+	// Создаем короткую ссылку
+	createReq := httptest.NewRequest(
+		http.MethodPost,
+		"/",
+		strings.NewReader("https://example.com/redirect/target"),
+	)
+	createReq.Header.Set("Content-Type", "text/plain")
+	createReq = createReq.WithContext(auth.SetUserIDToContext(createReq.Context(), "user789"))
+
+	createW := httptest.NewRecorder()
+	handler.GetShortenedUrl(createW, createReq)
+
+	shortURL := strings.TrimPrefix(createW.Body.String(), config.Options.AddrResp+"/")
+
+	req := httptest.NewRequest(http.MethodGet, "/"+shortURL, nil)
+	req = withChiParam(req, "id", shortURL)
+
+	w := httptest.NewRecorder()
+	handler.RedirectFullUrl(w, req)
+
+	fmt.Println("Status:", w.Code)
+	fmt.Println("Location:", w.Header().Get("Location"))
 
 	// Output:
-	// Method: GET
-	// Path: /abc12345
-	// Short ID: abc12345
+	// Status: 307
+	// Location: https://example.com/redirect/target
 }

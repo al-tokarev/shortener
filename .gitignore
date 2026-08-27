@@ -24,3 +24,6 @@ vendor/
 
 #Storage
 storage.txt
+
+#Macos
+*.DS_Store

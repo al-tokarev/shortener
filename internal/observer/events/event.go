@@ -1,5 +1,5 @@
 package events
 
-type IEvent interface {
+type Event interface {
 	GetName() string
 }
