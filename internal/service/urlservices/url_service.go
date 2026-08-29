@@ -1,29 +1,40 @@
+// Пакет urlservices содержит бизнес-логику для работы с короткими ссылками.
+// Обеспечивает взаимодействие между HTTP обработчиками и репозиториями данных.
 package urlservices
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/al-tokarev/shortener/internal/model"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"go.uber.org/zap"
 )
 
+// deleteTask представляет задачу на удаление ссылок пользователя.
 type deleteTask struct {
 	shortIDs []string
 	userID   string
 }
 
-type Service struct {
+// URLService содержит бизнес-логику для работы с короткими ссылками.
+// Управляет созданием, получением и удалением URL через репозиторий.
+type URLService struct {
 	repository urlrepository.RepositoryInterface
 	logger     *zap.SugaredLogger
 	taskCh     chan deleteTask
 	wg         sync.WaitGroup
 }
 
-func NewService(repository urlrepository.RepositoryInterface, logger *zap.SugaredLogger) *Service {
-	s := &Service{
+// NewService создает новый экземпляр Service.
+// Принимает репозиторий для работы с данными и логгер.
+// Запускает 5 воркеров для обработки задач на удаление.
+func NewService(repository urlrepository.RepositoryInterface, logger *zap.SugaredLogger) URLServiceInterface {
+	s := &URLService{
 		repository: repository,
 		logger:     logger.With(zap.String("component", "service")),
 		taskCh:     make(chan deleteTask, 100),
@@ -33,7 +44,8 @@ func NewService(repository urlrepository.RepositoryInterface, logger *zap.Sugare
 	return s
 }
 
-func (s *Service) startWorkers(count int) {
+// startWorkers запускает указанное количество воркеров для обработки задач на удаление.
+func (s *URLService) startWorkers(count int) {
 	for i := 0; i < count; i++ {
 		s.wg.Add(1)
 		go func(workerID int) {
@@ -44,13 +56,10 @@ func (s *Service) startWorkers(count int) {
 	s.logger.Infow("Delete workers started", "count", count)
 }
 
-func (s *Service) workerLoop(workerID int) {
+// workerLoop обрабатывает задачи на удаление из канала taskCh.
+// Каждый воркер обрабатывает задачи последовательно.
+func (s *URLService) workerLoop(workerID int) {
 	for task := range s.taskCh {
-		s.logger.Infow("Worker processing task",
-			"worker_id", workerID,
-			"count", len(task.shortIDs),
-			"user_id", task.userID)
-
 		if err := s.repository.BatchDelete(task.shortIDs, task.userID); err != nil {
 			s.logger.Warn("Batch delete failed",
 				"worker_id", workerID,
@@ -60,13 +69,19 @@ func (s *Service) workerLoop(workerID int) {
 	s.logger.Infow("Worker stopped", "worker_id", workerID)
 }
 
-func (s *Service) Stop() {
+// Stop останавливает все воркеры и ожидает их завершения.
+// Закрывает канал задач и ждет окончания обработки.
+func (s *URLService) Stop() {
 	close(s.taskCh)
 	s.wg.Wait()
 	s.logger.Info("All delete workers stopped")
 }
 
-func (service *Service) SetUrl(original string, userID string) (*model.Url, error) {
+// SetUrl создает короткую ссылку для оригинального URL.
+// Принимает оригинальный URL и идентификатор пользователя.
+// Возвращает созданную модель Url или ошибку.
+// Если оригинальный URL уже существует, возвращает существующую ссылку.
+func (service *URLService) SetUrl(original string, userID string) (*model.Url, error) {
 	const maxAttempts = 10
 	currentAttempt := 1
 	var url model.Url
@@ -102,12 +117,18 @@ func (service *Service) SetUrl(original string, userID string) (*model.Url, erro
 	return &url, nil
 }
 
-func (service *Service) GetUserURLs(userID string) (*[]model.Url, error) {
+// GetUserURLs возвращает все ссылки, созданные пользователем.
+// Принимает идентификатор пользователя.
+// Возвращает слайс URL или ошибку.
+func (service *URLService) GetUserURLs(userID string) (*[]model.Url, error) {
 	service.logger.Infow("Getting user URLs", "user_id", userID)
 	return service.repository.GetUserURLs(userID)
 }
 
-func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
+// SetBatch создает несколько коротких ссылок одновременно.
+// Принимает слайс запросов на создание и идентификатор пользователя.
+// Возвращает слайс созданных ссылок с идентификаторами корреляции.
+func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
 	urls := []model.Url{}
 	urlsBatch := []model.UrlBatch{}
 
@@ -136,7 +157,10 @@ func (service *Service) SetBatch(batchUrls *[]model.RequestBatchUrl, userID stri
 	return &urlsBatch, nil
 }
 
-func (service *Service) GetFullUrl(short string) (string, error) {
+// GetFullUrl возвращает оригинальный URL по короткому идентификатору.
+// Принимает короткий идентификатор ссылки.
+// Возвращает оригинальный URL или ошибку.
+func (service *URLService) GetFullUrl(short string) (string, error) {
 	url, err := service.repository.GetOriginalByShort(short)
 	if err != nil {
 		return "", err
@@ -145,16 +169,21 @@ func (service *Service) GetFullUrl(short string) (string, error) {
 	return url, nil
 }
 
-func (service *Service) GenerateShort() string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var bytesId = make([]byte, 8)
-	for i := range bytesId {
-		bytesId[i] = letters[rand.Intn(len(letters))]
+// GenerateShort генерирует случайный короткий идентификатор.
+// Использует криптографически безопасный генератор случайных чисел.
+// Возвращает строку из 8 символов.
+func (service *URLService) GenerateShort() string {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
-	return string(bytesId)
+	return base64.URLEncoding.EncodeToString(b)[:8]
 }
 
-func (s *Service) DeleteUserURLs(shortIDs []string, userID string) {
+// DeleteUserURLs добавляет задачу на удаление ссылок в очередь.
+// Принимает список коротких идентификаторов и идентификатор пользователя.
+// Задача будет обработана асинхронно одним из воркеров.
+func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 	if len(shortIDs) == 0 {
 		return
 	}
@@ -169,6 +198,8 @@ func (s *Service) DeleteUserURLs(shortIDs []string, userID string) {
 	s.logger.Infow("Delete task queued", "count", len(shortIDs), "user_id", userID)
 }
 
-func (service *Service) PingDb() error {
+// PingDb проверяет доступность базы данных.
+// Возвращает ошибку если база данных недоступна.
+func (service *URLService) PingDb() error {
 	return service.repository.Ping()
 }

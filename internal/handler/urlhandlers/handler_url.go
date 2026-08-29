@@ -1,3 +1,4 @@
+// Модуль urlhandlers содержит обработчики для работы с ссылками
 package urlhandlers
 
 import (
@@ -5,29 +6,41 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/al-tokarev/shortener/internal/auth"
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/model"
+	"github.com/al-tokarev/shortener/internal/observer"
+	"github.com/al-tokarev/shortener/internal/observer/events"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
-	urlservices "github.com/al-tokarev/shortener/internal/service/urlservices"
+	"github.com/al-tokarev/shortener/internal/service/urlservices"
 	"github.com/go-chi/chi"
 	"go.uber.org/zap"
 )
 
-type Handler struct {
-	service *urlservices.Service
-	logger  *zap.SugaredLogger
+// Handler содержит зависимости для обработки HTTP запросов.
+type URLHandler struct {
+	service    urlservices.URLServiceInterface
+	dispatcher observer.DispatcherInterface
+	logger     *zap.SugaredLogger
 }
 
-func NewHandler(service *urlservices.Service, logger *zap.SugaredLogger) *Handler {
-	return &Handler{
-		service: service,
-		logger:  logger.With(zap.String("component", "handler")),
+// NewHandler создает новый экземпляр Handler.
+// Принимает сервис для работы с URL, диспетчер событий и логгер.
+func NewHandler(service urlservices.URLServiceInterface, dispatcher *observer.Dispatcher, logger *zap.SugaredLogger) *URLHandler {
+	return &URLHandler{
+		service:    service,
+		dispatcher: dispatcher,
+		logger:     logger.With(zap.String("component", "handler")),
 	}
 }
 
-func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
+// GetShortenedUrl обрабатывает POST запрос на создание короткой ссылки.
+// Ожидает длинную ссылку в теле запроса с Content-Type: text/plain.
+// Возвращает укороченную ссылку с кодом 201 Created.
+// Возможные ошибки: 400 Bad Request, 401 Unauthorized, 409 Conflict.
+func (h *URLHandler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
 	if r.Header.Get("Content-Type") != "text/plain" {
@@ -54,9 +67,9 @@ func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	createdUrl, err := handler.service.SetUrl(string(body), userID)
+	createdUrl, err := h.service.SetUrl(string(body), userID)
 	if err != nil {
-		handler.logger.Debug("Err by add url", zap.Error(err))
+		h.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -70,24 +83,34 @@ func (handler *Handler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	h.dispatcher.Dispatch(events.AuditEvent{
+		Ts:     time.Now().Unix(),
+		Action: events.Shorten,
+		UserID: userID,
+		URL:    createdUrl.OriginalUrl,
+	})
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(config.Options.AddrResp + "/" + createdUrl.ShortUrl))
 }
 
-func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
+// GetJsonShortenedUrl обрабатывает POST запрос на создание короткой ссылки.
+// Ожидает JSON с полем "url" в теле запроса.
+// Возвращает JSON с укороченной ссылкой и кодом 201 Created.
+func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		handler.logger.Debug("Err content-type")
+		h.logger.Debug("Err content-type")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	handler.logger.Info("Start decoding")
+	h.logger.Info("Start decoding")
 	var request model.Request
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&request); err != nil {
-		handler.logger.Debug("Err request decode", zap.Error(err))
+		h.logger.Debug("Err request decode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -98,9 +121,9 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	createdUrl, err := handler.service.SetUrl(request.Url, userID)
+	createdUrl, err := h.service.SetUrl(request.Url, userID)
 	if err != nil && !errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
-		handler.logger.Debug("Err by add url", zap.Error(err))
+		h.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -118,29 +141,38 @@ func (handler *Handler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusConflict)
 	} else {
 		w.WriteHeader(http.StatusCreated)
+		h.dispatcher.Dispatch(events.AuditEvent{
+			Ts:     time.Now().Unix(),
+			Action: events.Shorten,
+			UserID: userID,
+			URL:    createdUrl.OriginalUrl,
+		})
 	}
 
 	if err := enc.Encode(response); err != nil {
-		handler.logger.Warn("Err response encode", zap.Error(err))
+		h.logger.Warn("Err response encode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
-func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Request) {
+// GetJsonShortenedBatch обрабатывает POST запрос на пакетное создание коротких ссылок.
+// Ожидает массив JSON объектов с полями "correlation_id" и "original_url".
+// Возвращает массив JSON объектов с укороченными ссылками.
+func (h *URLHandler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		handler.logger.Debug("Err content-type")
+		h.logger.Debug("Err content-type")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	handler.logger.Info("Start decoding")
+	h.logger.Info("Start decoding")
 	request := []model.RequestBatchUrl{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&request); err != nil {
-		handler.logger.Debug("Err request decode", zap.Error(err))
+		h.logger.Debug("Err request decode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -151,9 +183,9 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	createdBatchUrls, err := handler.service.SetBatch(&request, userID)
+	createdBatchUrls, err := h.service.SetBatch(&request, userID)
 	if err != nil {
-		handler.logger.Debug("Err by add batch", zap.Error(err))
+		h.logger.Debug("Err by add batch", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -173,22 +205,24 @@ func (handler *Handler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Req
 	enc := json.NewEncoder(w)
 	w.WriteHeader(http.StatusCreated)
 	if err := enc.Encode(response); err != nil {
-		handler.logger.Warn("Err response encode", zap.Error(err))
+		h.logger.Warn("Err response encode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
-func (handler *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
+// GetUserURLs возвращает все URL, созданные пользователем.
+// Возвращает JSON массив с оригинальными и укороченными ссылками.
+func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok || userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	urls, err := handler.service.GetUserURLs(userID)
+	urls, err := h.service.GetUserURLs(userID)
 	if err != nil {
-		handler.logger.Warn("Failed to get user URLs", zap.Error(err))
+		h.logger.Warn("Failed to get user URLs", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -209,13 +243,16 @@ func (handler *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	w.WriteHeader(http.StatusOK)
 	if err := enc.Encode(response); err != nil {
-		handler.logger.Warn("Err response encode", zap.Error(err))
+		h.logger.Warn("Err response encode", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
-func (handler *Handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
+// DeleteUserURLs помечает URL как удаленные.
+// Ожидает JSON массив коротких идентификаторов.
+// Возвращает 202 Accepted при успешном выполнении.
+func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -229,7 +266,7 @@ func (handler *Handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	var shortIDs []string
 	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
-		handler.logger.Warn("Failed to decode delete request", zap.Error(err))
+		h.logger.Warn("Failed to decode delete request", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -239,15 +276,17 @@ func (handler *Handler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handler.service.DeleteUserURLs(shortIDs, userID)
+	h.service.DeleteUserURLs(shortIDs, userID)
 
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
+// RedirectFullUrl обрабатывает GET запрос на переход по короткой ссылке.
+// Извлекает короткий идентификатор из URL и редиректит на оригинальный URL.
+func (h *URLHandler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	fullUrl, err := handler.service.GetFullUrl(id)
+	fullUrl, err := h.service.GetFullUrl(id)
 	if err != nil {
 		if errors.Is(err, urlrepository.ErrURLNotFound) {
 			http.Error(w, "URL is not found", http.StatusNotFound)
@@ -259,18 +298,31 @@ func (handler *Handler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	event := events.AuditEvent{
+		Ts:     time.Now().Unix(),
+		Action: events.Follow,
+		URL:    fullUrl,
+	}
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if ok {
+		event.UserID = userID
+	}
+	h.dispatcher.Dispatch(event)
+
 	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
 }
 
-func (handler *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
-	err := handler.service.PingDb()
+// PingHandler проверяет доступность базы данных.
+// Возвращает "Pong" и код 200 OK при успешной проверке.
+func (h *URLHandler) PingHandler(w http.ResponseWriter, r *http.Request) {
+	err := h.service.PingDb()
 
 	if err != nil {
-		handler.logger.Warn("Error sql connection", zap.Error(err))
+		h.logger.Warn("Error sql connection", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	handler.logger.Info("Pong. SQL connection is success")
+	h.logger.Info("Pong. SQL connection is success")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Pong"))
 }

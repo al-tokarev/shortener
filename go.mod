@@ -6,6 +6,7 @@ require (
 	github.com/go-chi/chi v1.5.5
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/golang/mock v1.6.0
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/stretchr/testify v1.11.1
@@ -14,6 +15,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
