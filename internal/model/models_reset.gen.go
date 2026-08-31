@@ -2,25 +2,25 @@
 
 package model
 
-// Reset сбрасывает состояние Url к начальным значениям.
-func (x *Url) Reset() {
+// Reset сбрасывает состояние URL к начальным значениям.
+func (x *URL) Reset() {
 	if x == nil {
 		return
 	}
-	x.Uuid = 0
-	x.ShortUrl = ""
-	x.OriginalUrl = ""
+	x.UUID = 0
+	x.ShortURL = ""
+	x.OriginalURL = ""
 	x.UserID = ""
 	x.IsDeleted = false
 }
 
 // Reset сбрасывает состояние UrlBatch к начальным значениям.
-func (x *UrlBatch) Reset() {
+func (x *URLBatch) Reset() {
 	if x == nil {
 		return
 	}
-	x.CorrelationId = ""
-	if x.Url != nil {
-		x.Url.Reset()
+	x.CorrelationID = ""
+	if x.URL != nil {
+		x.URL.Reset()
 	}
 }

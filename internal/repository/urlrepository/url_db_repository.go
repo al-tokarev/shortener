@@ -27,17 +27,17 @@ var ErrURLNotFound = errors.New("URL is not found")
 // ErrURLDeleted возвращается при попытке получить удаленную ссылку.
 var ErrURLDeleted = errors.New("URL is deleted")
 
-// DbRepository реализует RepositoryInterface для работы с PostgreSQL.
+// DBRepository реализует RepositoryInterface для работы с PostgreSQL.
 // Хранит подключение к базе данных и логгер.
-type DbRepository struct {
+type DBRepository struct {
 	logger *zap.SugaredLogger
 	conn   *sql.DB
 }
 
-// NewDbRepository создает новый экземпляр DbRepository.
+// NewDBRepository создает новый экземпляр DBRepository.
 // Принимает подключение к базе данных и логгер.
-func NewDbRepository(conn *sql.DB, logger *zap.SugaredLogger) *DbRepository {
-	return &DbRepository{
+func NewDBRepository(conn *sql.DB, logger *zap.SugaredLogger) *DBRepository {
+	return &DBRepository{
 		logger: logger.With(zap.String("component", "repository")),
 		conn:   conn,
 	}
@@ -45,7 +45,7 @@ func NewDbRepository(conn *sql.DB, logger *zap.SugaredLogger) *DbRepository {
 
 // InitializeStorage инициализирует хранилище.
 // Для базы данных не требует действий, всегда возвращает nil.
-func (repository *DbRepository) InitializeStorage() error {
+func (repository *DBRepository) InitializeStorage() error {
 	return nil
 }
 
@@ -54,7 +54,7 @@ func (repository *DbRepository) InitializeStorage() error {
 // Save сохраняет новую короткую ссылку в базе данных.
 // Принимает модель Url для сохранения.
 // Возвращает ErrOriginalURLAlreadyExists если оригинальный URL уже существует.
-func (repository *DbRepository) Save(url *model.Url) error {
+func (repository *DBRepository) Save(url *model.URL) error {
 	repository.logger.Info("Add url to database ...")
 
 	dbCtx, dbCancel := context.WithCancel(context.Background())
@@ -66,7 +66,7 @@ func (repository *DbRepository) Save(url *model.Url) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(dbCtx, url.ShortUrl, url.OriginalUrl, url.UserID)
+	_, err = stmt.ExecContext(dbCtx, url.ShortURL, url.OriginalURL, url.UserID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -80,7 +80,7 @@ func (repository *DbRepository) Save(url *model.Url) error {
 // SaveBatch сохраняет несколько коротких ссылок в базе данных одной транзакцией.
 // Принимает слайс URL для сохранения.
 // Возвращает ошибку если транзакция не удалась.
-func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
+func (repository *DBRepository) SaveBatch(urls *[]model.URL) error {
 	tx, err := repository.conn.Begin()
 	if err != nil {
 		return err
@@ -95,8 +95,8 @@ func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 	i := 0
 	for _, url := range *urls {
 		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
-		valueArgs = append(valueArgs, url.ShortUrl)
-		valueArgs = append(valueArgs, url.OriginalUrl)
+		valueArgs = append(valueArgs, url.ShortURL)
+		valueArgs = append(valueArgs, url.OriginalURL)
 		valueArgs = append(valueArgs, url.UserID)
 		i++
 	}
@@ -122,7 +122,7 @@ func (repository *DbRepository) SaveBatch(urls *[]model.Url) error {
 // Возвращает оригинальный URL или ошибку:
 //   - ErrURLNotFound если ссылка не найдена
 //   - ErrURLDeleted если ссылка удалена
-func (repository *DbRepository) GetOriginalByShort(short string) (string, error) {
+func (repository *DBRepository) GetOriginalByShort(short string) (string, error) {
 	repository.logger.Info("Find in database ...")
 
 	dbCtx, dbCancel := context.WithCancel(context.Background())
@@ -135,8 +135,8 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 	defer stmt.Close()
 
 	row := stmt.QueryRowContext(dbCtx, short)
-	var url model.Url
-	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl, &url.IsDeleted)
+	var url model.URL
+	err = row.Scan(&url.UUID, &url.ShortURL, &url.OriginalURL, &url.IsDeleted)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrURLNotFound
@@ -148,13 +148,13 @@ func (repository *DbRepository) GetOriginalByShort(short string) (string, error)
 		return "", ErrURLDeleted
 	}
 
-	return url.OriginalUrl, nil
+	return url.OriginalURL, nil
 }
 
 // GetByOriginal возвращает модель Url по оригинальному URL.
 // Принимает оригинальный URL для поиска.
 // Возвращает найденную модель или ошибку.
-func (repository *DbRepository) GetByOriginal(original string) (*model.Url, error) {
+func (repository *DBRepository) GetByOriginal(original string) (*model.URL, error) {
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
 
@@ -165,8 +165,8 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 	defer stmt.Close()
 
 	row := stmt.QueryRowContext(dbCtx, original)
-	var url model.Url
-	err = row.Scan(&url.Uuid, &url.ShortUrl, &url.OriginalUrl)
+	var url model.URL
+	err = row.Scan(&url.UUID, &url.ShortURL, &url.OriginalURL)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (repository *DbRepository) GetByOriginal(original string) (*model.Url, erro
 // GetUserURLs возвращает все ссылки, созданные пользователем.
 // Принимает идентификатор пользователя.
 // Возвращает слайс URL или ошибку.
-func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error) {
+func (repository *DBRepository) GetUserURLs(userID string) (*[]model.URL, error) {
 	dbCtx, dbCancel := context.WithCancel(context.Background())
 	defer dbCancel()
 
@@ -192,10 +192,10 @@ func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error)
 	}
 	defer rows.Close()
 
-	var urls []model.Url
+	var urls []model.URL
 	for rows.Next() {
-		var userURL model.Url
-		err := rows.Scan(&userURL.ShortUrl, &userURL.OriginalUrl)
+		var userURL model.URL
+		err := rows.Scan(&userURL.ShortURL, &userURL.OriginalURL)
 		if err != nil {
 			return nil, err
 		}
@@ -210,16 +210,16 @@ func (repository *DbRepository) GetUserURLs(userID string) (*[]model.Url, error)
 	return &urls, nil
 }
 
-// GetLastId возвращает последний использованный идентификатор.
+// GetLastID возвращает последний использованный идентификатор.
 // Для базы данных всегда возвращает 0, так как ID генерируется автоматически.
-func (repository *DbRepository) GetLastId() int {
+func (repository *DBRepository) GetLastID() int {
 	return 0
 }
 
 // BatchDelete помечает несколько ссылок как удаленные.
 // Принимает список коротких идентификаторов и идентификатор пользователя.
 // Возвращает ошибку если обновление не удалось.
-func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) error {
+func (repository *DBRepository) BatchDelete(shortIDs []string, userID string) error {
 	if len(shortIDs) == 0 {
 		return nil
 	}
@@ -260,7 +260,7 @@ func (repository *DbRepository) BatchDelete(shortIDs []string, userID string) er
 
 // Ping проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
-func (repository *DbRepository) Ping() error {
+func (repository *DBRepository) Ping() error {
 	repository.logger.Infow("Try db connection...")
 	return repository.conn.Ping()
 }

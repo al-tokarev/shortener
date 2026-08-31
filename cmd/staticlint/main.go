@@ -98,6 +98,7 @@ func GetAnalyzers() []*analysis.Analyzer {
 
 	checks := map[string]bool{
 		"ST1001": true,
+		"ST1003": true,
 		"QF1002": true,
 		"QF1010": true,
 	}

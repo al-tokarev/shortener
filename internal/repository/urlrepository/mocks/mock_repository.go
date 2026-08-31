@@ -49,10 +49,10 @@ func (mr *MockRepositoryInterfaceMockRecorder) BatchDelete(arg0, arg1 interface{
 }
 
 // GetByOriginal mocks base method.
-func (m *MockRepositoryInterface) GetByOriginal(arg0 string) (*model.Url, error) {
+func (m *MockRepositoryInterface) GetByOriginal(arg0 string) (*model.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByOriginal", arg0)
-	ret0, _ := ret[0].(*model.Url)
+	ret0, _ := ret[0].(*model.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,18 +63,18 @@ func (mr *MockRepositoryInterfaceMockRecorder) GetByOriginal(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByOriginal", reflect.TypeOf((*MockRepositoryInterface)(nil).GetByOriginal), arg0)
 }
 
-// GetLastId mocks base method.
-func (m *MockRepositoryInterface) GetLastId() int {
+// GetLastID mocks base method.
+func (m *MockRepositoryInterface) GetLastID() int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLastId")
+	ret := m.ctrl.Call(m, "GetLastID")
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-// GetLastId indicates an expected call of GetLastId.
-func (mr *MockRepositoryInterfaceMockRecorder) GetLastId() *gomock.Call {
+// GetLastID indicates an expected call of GetLastID.
+func (mr *MockRepositoryInterfaceMockRecorder) GetLastID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastId", reflect.TypeOf((*MockRepositoryInterface)(nil).GetLastId))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastID", reflect.TypeOf((*MockRepositoryInterface)(nil).GetLastID))
 }
 
 // GetOriginalByShort mocks base method.
@@ -93,10 +93,10 @@ func (mr *MockRepositoryInterfaceMockRecorder) GetOriginalByShort(arg0 interface
 }
 
 // GetUserURLs mocks base method.
-func (m *MockRepositoryInterface) GetUserURLs(arg0 string) (*[]model.Url, error) {
+func (m *MockRepositoryInterface) GetUserURLs(arg0 string) (*[]model.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserURLs", arg0)
-	ret0, _ := ret[0].(*[]model.Url)
+	ret0, _ := ret[0].(*[]model.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -136,7 +136,7 @@ func (mr *MockRepositoryInterfaceMockRecorder) Ping() *gomock.Call {
 }
 
 // Save mocks base method.
-func (m *MockRepositoryInterface) Save(arg0 *model.Url) error {
+func (m *MockRepositoryInterface) Save(arg0 *model.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save", arg0)
 	ret0, _ := ret[0].(error)
@@ -150,7 +150,7 @@ func (mr *MockRepositoryInterfaceMockRecorder) Save(arg0 interface{}) *gomock.Ca
 }
 
 // SaveBatch mocks base method.
-func (m *MockRepositoryInterface) SaveBatch(arg0 *[]model.Url) error {
+func (m *MockRepositoryInterface) SaveBatch(arg0 *[]model.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveBatch", arg0)
 	ret0, _ := ret[0].(error)

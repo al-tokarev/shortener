@@ -77,20 +77,20 @@ func (s *URLService) Stop() {
 	s.logger.Info("All delete workers stopped")
 }
 
-// SetUrl создает короткую ссылку для оригинального URL.
+// SetURL создает короткую ссылку для оригинального URL.
 // Принимает оригинальный URL и идентификатор пользователя.
-// Возвращает созданную модель Url или ошибку.
+// Возвращает созданную модель URL или ошибку.
 // Если оригинальный URL уже существует, возвращает существующую ссылку.
-func (service *URLService) SetUrl(original string, userID string) (*model.Url, error) {
+func (service *URLService) SetURL(original string, userID string) (*model.URL, error) {
 	const maxAttempts = 10
 	currentAttempt := 1
-	var url model.Url
+	var url model.URL
 	var errorCreate error
 	for currentAttempt < maxAttempts {
-		url = model.Url{
-			Uuid:        service.repository.GetLastId() + 1,
-			ShortUrl:    service.GenerateShort(),
-			OriginalUrl: original,
+		url = model.URL{
+			UUID:        service.repository.GetLastID() + 1,
+			ShortURL:    service.GenerateShort(),
+			OriginalURL: original,
 			UserID:      userID,
 		}
 		errorCreate = service.repository.Save(&url)
@@ -113,14 +113,14 @@ func (service *URLService) SetUrl(original string, userID string) (*model.Url, e
 		return nil, errorCreate
 	}
 
-	service.logger.Infow("New url", "Original", url.OriginalUrl, "Short", url.ShortUrl)
+	service.logger.Infow("New url", "Original", url.OriginalURL, "Short", url.ShortURL)
 	return &url, nil
 }
 
 // GetUserURLs возвращает все ссылки, созданные пользователем.
 // Принимает идентификатор пользователя.
 // Возвращает слайс URL или ошибку.
-func (service *URLService) GetUserURLs(userID string) (*[]model.Url, error) {
+func (service *URLService) GetUserURLs(userID string) (*[]model.URL, error) {
 	service.logger.Infow("Getting user URLs", "user_id", userID)
 	return service.repository.GetUserURLs(userID)
 }
@@ -128,25 +128,25 @@ func (service *URLService) GetUserURLs(userID string) (*[]model.Url, error) {
 // SetBatch создает несколько коротких ссылок одновременно.
 // Принимает слайс запросов на создание и идентификатор пользователя.
 // Возвращает слайс созданных ссылок с идентификаторами корреляции.
-func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
-	urls := []model.Url{}
-	urlsBatch := []model.UrlBatch{}
+func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchURL, userID string) (*[]model.URLBatch, error) {
+	urls := []model.URL{}
+	urlsBatch := []model.URLBatch{}
 
-	lastId := service.repository.GetLastId() + 1
-	for _, bUrl := range *batchUrls {
-		url := model.Url{
-			Uuid:        lastId,
-			ShortUrl:    service.GenerateShort(),
-			OriginalUrl: bUrl.OriginalUrl,
+	lastID := service.repository.GetLastID() + 1
+	for _, bURL := range *batchUrls {
+		url := model.URL{
+			UUID:        lastID,
+			ShortURL:    service.GenerateShort(),
+			OriginalURL: bURL.OriginalURL,
 			UserID:      userID,
 		}
 		urls = append(urls, url)
-		urlsBatch = append(urlsBatch, model.UrlBatch{
-			CorrelationId: bUrl.CorrelationId,
-			Url:           &url,
+		urlsBatch = append(urlsBatch, model.URLBatch{
+			CorrelationID: bURL.CorrelationID,
+			URL:           &url,
 		})
 
-		lastId++
+		lastID++
 	}
 
 	errorCreate := service.repository.SaveBatch(&urls)
@@ -157,10 +157,10 @@ func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID s
 	return &urlsBatch, nil
 }
 
-// GetFullUrl возвращает оригинальный URL по короткому идентификатору.
+// GetFullURL возвращает оригинальный URL по короткому идентификатору.
 // Принимает короткий идентификатор ссылки.
 // Возвращает оригинальный URL или ошибку.
-func (service *URLService) GetFullUrl(short string) (string, error) {
+func (service *URLService) GetFullURL(short string) (string, error) {
 	url, err := service.repository.GetOriginalByShort(short)
 	if err != nil {
 		return "", err
@@ -200,6 +200,6 @@ func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 
 // PingDb проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
-func (service *URLService) PingDb() error {
+func (service *URLService) PingDB() error {
 	return service.repository.Ping()
 }

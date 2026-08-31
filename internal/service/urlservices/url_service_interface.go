@@ -3,11 +3,11 @@ package urlservices
 import "github.com/al-tokarev/shortener/internal/model"
 
 type URLServiceInterface interface {
-	SetUrl(original string, userID string) (*model.Url, error)
-	GetUserURLs(userID string) (*[]model.Url, error)
-	SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error)
-	GetFullUrl(short string) (string, error)
+	SetURL(original string, userID string) (*model.URL, error)
+	GetUserURLs(userID string) (*[]model.URL, error)
+	SetBatch(batchURLs *[]model.RequestBatchURL, userID string) (*[]model.URLBatch, error)
+	GetFullURL(short string) (string, error)
 	GenerateShort() string
 	DeleteUserURLs(shortIDs []string, userID string)
-	PingDb() error
+	PingDB() error
 }

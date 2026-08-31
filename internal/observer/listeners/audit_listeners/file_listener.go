@@ -1,4 +1,4 @@
-package audit_listeners
+package auditlisteners
 
 import (
 	"bufio"

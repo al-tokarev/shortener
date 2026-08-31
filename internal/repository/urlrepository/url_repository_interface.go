@@ -6,12 +6,12 @@ import "github.com/al-tokarev/shortener/internal/model"
 
 type RepositoryInterface interface {
 	InitializeStorage() error
-	Save(url *model.Url) error
-	SaveBatch(urls *[]model.Url) error
+	Save(url *model.URL) error
+	SaveBatch(urls *[]model.URL) error
 	BatchDelete(shortIDs []string, userID string) error
 	GetOriginalByShort(short string) (string, error)
-	GetByOriginal(original string) (*model.Url, error)
-	GetUserURLs(userID string) (*[]model.Url, error)
-	GetLastId() int
+	GetByOriginal(original string) (*model.URL, error)
+	GetUserURLs(userID string) (*[]model.URL, error)
+	GetLastID() int
 	Ping() error
 }

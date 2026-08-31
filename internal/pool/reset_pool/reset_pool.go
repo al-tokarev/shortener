@@ -1,4 +1,4 @@
-package reset_pool
+package resetpool
 
 import "sync"
 
