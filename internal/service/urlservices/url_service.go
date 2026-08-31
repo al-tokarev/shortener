@@ -3,10 +3,10 @@
 package urlservices
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 

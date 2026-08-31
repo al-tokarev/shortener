@@ -28,7 +28,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
 func main() {
+	printBuildInfo()
+
 	go func() {
 		log.Println("pprof server starting on :6060")
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -123,4 +131,10 @@ func registerEvents(d *observer.Dispatcher, l *zap.SugaredLogger) {
 		auditURLListener := audit_listeners.NewAuditURLListener(config.Options.AuditURL)
 		d.Subscribe("audit", auditURLListener)
 	}
+}
+
+func printBuildInfo() {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
 }
