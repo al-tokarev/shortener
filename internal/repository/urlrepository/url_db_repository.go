@@ -16,10 +16,10 @@ import (
 )
 
 // ErrShortURLAlreadyExists возвращается при попытке создать ссылку с уже существующим коротким идентификатором.
-var ErrShortURLAlreadyExists = errors.New("Short URL already exists")
+var ErrShortURLAlreadyExists = errors.New("short URL already exists")
 
 // ErrOriginalURLAlreadyExists возвращается при попытке создать ссылку с уже существующим оригинальным URL.
-var ErrOriginalURLAlreadyExists = errors.New("Original URL already exists")
+var ErrOriginalURLAlreadyExists = errors.New("original URL already exists")
 
 // ErrURLNotFound возвращается когда запрашиваемая ссылка не найдена.
 var ErrURLNotFound = errors.New("URL is not found")
