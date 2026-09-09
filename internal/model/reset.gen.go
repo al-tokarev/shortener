@@ -14,7 +14,18 @@ func (x *URL) Reset() {
 	x.IsDeleted = false
 }
 
-// Reset сбрасывает состояние UrlBatch к начальным значениям.
+// Reset сбрасывает состояние Example к начальным значениям.
+func (x *Example) Reset() {
+	if x == nil {
+		return
+	}
+	x.x = 0
+	x.y = 0
+	x.g = false
+	clear(x.mapa)
+}
+
+// Reset сбрасывает состояние URLBatch к начальным значениям.
 func (x *URLBatch) Reset() {
 	if x == nil {
 		return

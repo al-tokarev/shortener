@@ -2,7 +2,7 @@ package main
 
 import (
 	"go/ast"
-	"strings"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -16,20 +16,11 @@ var ErrExitAnalyzer = &analysis.Analyzer{
 
 // CheckExitInMain проверяет, что в функции main пакета main нет вызова os.Exit.
 func CheckExitInMain(pass *analysis.Pass) (interface{}, error) {
-	// Проверяем только пакет main
 	if pass.Pkg.Name() != "main" {
 		return nil, nil
 	}
 
 	for _, file := range pass.Files {
-		filename := pass.Fset.Position(file.Pos()).Filename
-
-		if strings.Contains(filename, "Library/Caches") ||
-			strings.Contains(filename, "/usr/local/go/") ||
-			strings.Contains(filename, "/usr/lib/go/") {
-			continue
-		}
-
 		ast.Inspect(file, func(node ast.Node) bool {
 			funcDecl, ok := node.(*ast.FuncDecl)
 			if !ok {
@@ -56,14 +47,24 @@ func CheckExitInMain(pass *analysis.Pass) (interface{}, error) {
 					return true
 				}
 
-				if ident.Name == "os" && selExpr.Sel.Name == "Exit" {
+				obj, ok := pass.TypesInfo.Uses[ident]
+				if !ok {
+					return true
+				}
+
+				pkgName, ok := obj.(*types.PkgName)
+				if !ok {
+					return true
+				}
+
+				if pkgName.Imported().Path() == "os" && selExpr.Sel.Name == "Exit" {
 					pass.Reportf(callExpr.Pos(), "os.Exit is not allowed in main function main package")
 				}
 
 				return true
 			})
 
-			return true
+			return false
 		})
 	}
 

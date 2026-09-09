@@ -13,6 +13,13 @@ type URL struct {
 }
 
 // generate:reset
+type Example struct {
+	x, y int
+	g    bool
+	mapa map[string]int
+}
+
+// generate:reset
 // URLBatch представляет собой связку короткой ссылки с идентификатором корреляции.
 // Используется при пакетном создании коротких ссылок.
 type URLBatch struct {

@@ -16,6 +16,10 @@ func New[T Resetable](factory func() T) *Pool[T] {
 		factory: factory,
 		p: sync.Pool{
 			New: func() interface{} {
+				if factory == nil {
+					var zero T
+					return zero
+				}
 				return factory()
 			},
 		},
