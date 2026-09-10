@@ -36,11 +36,11 @@ func NewHandler(service urlservices.URLServiceInterface, dispatcher *observer.Di
 	}
 }
 
-// GetShortenedUrl обрабатывает POST запрос на создание короткой ссылки.
+// GetShortenedURL обрабатывает POST запрос на создание короткой ссылки.
 // Ожидает длинную ссылку в теле запроса с Content-Type: text/plain.
 // Возвращает укороченную ссылку с кодом 201 Created.
 // Возможные ошибки: 400 Bad Request, 401 Unauthorized, 409 Conflict.
-func (h *URLHandler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) GetShortenedURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
 	if r.Header.Get("Content-Type") != "text/plain" {
@@ -67,7 +67,7 @@ func (h *URLHandler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdUrl, err := h.service.SetUrl(string(body), userID)
+	createdURL, err := h.service.SetURL(string(body), userID)
 	if err != nil {
 		h.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -76,7 +76,7 @@ func (h *URLHandler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte(config.Options.AddrResp + "/" + createdUrl.ShortUrl))
+			w.Write([]byte(config.Options.AddrResp + "/" + createdURL.ShortURL))
 			return
 		}
 		w.WriteHeader(http.StatusBadRequest)
@@ -84,20 +84,20 @@ func (h *URLHandler) GetShortenedUrl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.dispatcher.Dispatch(events.AuditEvent{
-		Ts:     time.Now().Unix(),
+		TS:     time.Now().Unix(),
 		Action: events.Shorten,
 		UserID: userID,
-		URL:    createdUrl.OriginalUrl,
+		URL:    createdURL.OriginalURL,
 	})
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(config.Options.AddrResp + "/" + createdUrl.ShortUrl))
+	w.Write([]byte(config.Options.AddrResp + "/" + createdURL.ShortURL))
 }
 
-// GetJsonShortenedUrl обрабатывает POST запрос на создание короткой ссылки.
+// GetJSONShortenedURL обрабатывает POST запрос на создание короткой ссылки.
 // Ожидает JSON с полем "url" в теле запроса.
 // Возвращает JSON с укороченной ссылкой и кодом 201 Created.
-func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) GetJSONShortenedURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
@@ -121,7 +121,7 @@ func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	createdUrl, err := h.service.SetUrl(request.Url, userID)
+	createdURL, err := h.service.SetURL(request.URL, userID)
 	if err != nil && !errors.Is(err, urlrepository.ErrOriginalURLAlreadyExists) {
 		h.logger.Debug("Err by add url", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -133,7 +133,7 @@ func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request)
 	}
 
 	response := model.Response{
-		Result: config.Options.AddrResp + "/" + createdUrl.ShortUrl,
+		Result: config.Options.AddrResp + "/" + createdURL.ShortURL,
 	}
 
 	enc := json.NewEncoder(w)
@@ -142,10 +142,10 @@ func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request)
 	} else {
 		w.WriteHeader(http.StatusCreated)
 		h.dispatcher.Dispatch(events.AuditEvent{
-			Ts:     time.Now().Unix(),
+			TS:     time.Now().Unix(),
 			Action: events.Shorten,
 			UserID: userID,
-			URL:    createdUrl.OriginalUrl,
+			URL:    createdURL.OriginalURL,
 		})
 	}
 
@@ -156,10 +156,10 @@ func (h *URLHandler) GetJsonShortenedUrl(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// GetJsonShortenedBatch обрабатывает POST запрос на пакетное создание коротких ссылок.
+// GetJSONShortenedBatch обрабатывает POST запрос на пакетное создание коротких ссылок.
 // Ожидает массив JSON объектов с полями "correlation_id" и "original_url".
 // Возвращает массив JSON объектов с укороченными ссылками.
-func (h *URLHandler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) GetJSONShortenedBatch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Header.Get("Content-Type") != "application/json" {
@@ -169,7 +169,7 @@ func (h *URLHandler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.logger.Info("Start decoding")
-	request := []model.RequestBatchUrl{}
+	request := []model.RequestBatchURL{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&request); err != nil {
 		h.logger.Debug("Err request decode", zap.Error(err))
@@ -183,7 +183,7 @@ func (h *URLHandler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	createdBatchUrls, err := h.service.SetBatch(&request, userID)
+	createdBatchURLs, err := h.service.SetBatch(&request, userID)
 	if err != nil {
 		h.logger.Debug("Err by add batch", zap.Error(err))
 		if errors.Is(err, urlrepository.ErrShortURLAlreadyExists) {
@@ -194,11 +194,11 @@ func (h *URLHandler) GetJsonShortenedBatch(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response := []model.ResponseBatchUrl{}
-	for _, batchUrl := range *createdBatchUrls {
-		response = append(response, model.ResponseBatchUrl{
-			CorrelationId: batchUrl.CorrelationId,
-			ShortUrl:      config.Options.AddrResp + "/" + batchUrl.Url.ShortUrl,
+	response := []model.ResponseBatchURL{}
+	for _, batchURL := range *createdBatchURLs {
+		response = append(response, model.ResponseBatchURL{
+			CorrelationID: batchURL.CorrelationID,
+			ShortURL:      config.Options.AddrResp + "/" + batchURL.URL.ShortURL,
 		})
 	}
 
@@ -231,11 +231,11 @@ func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := []model.ResponseUserUrl{}
+	response := []model.ResponseUserURL{}
 	for _, url := range *urls {
-		response = append(response, model.ResponseUserUrl{
-			OriginalUrl: url.OriginalUrl,
-			ShortUrl:    config.Options.AddrResp + "/" + url.ShortUrl,
+		response = append(response, model.ResponseUserURL{
+			OriginalURL: url.OriginalURL,
+			ShortURL:    config.Options.AddrResp + "/" + url.ShortURL,
 		})
 	}
 
@@ -281,12 +281,12 @@ func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-// RedirectFullUrl обрабатывает GET запрос на переход по короткой ссылке.
+// RedirectFullURL обрабатывает GET запрос на переход по короткой ссылке.
 // Извлекает короткий идентификатор из URL и редиректит на оригинальный URL.
-func (h *URLHandler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) RedirectFullURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	fullUrl, err := h.service.GetFullUrl(id)
+	fullURL, err := h.service.GetFullURL(id)
 	if err != nil {
 		if errors.Is(err, urlrepository.ErrURLNotFound) {
 			http.Error(w, "URL is not found", http.StatusNotFound)
@@ -299,9 +299,9 @@ func (h *URLHandler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := events.AuditEvent{
-		Ts:     time.Now().Unix(),
+		TS:     time.Now().Unix(),
 		Action: events.Follow,
-		URL:    fullUrl,
+		URL:    fullURL,
 	}
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if ok {
@@ -309,13 +309,13 @@ func (h *URLHandler) RedirectFullUrl(w http.ResponseWriter, r *http.Request) {
 	}
 	h.dispatcher.Dispatch(event)
 
-	http.Redirect(w, r, fullUrl, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, fullURL, http.StatusTemporaryRedirect)
 }
 
 // PingHandler проверяет доступность базы данных.
 // Возвращает "Pong" и код 200 OK при успешной проверке.
 func (h *URLHandler) PingHandler(w http.ResponseWriter, r *http.Request) {
-	err := h.service.PingDb()
+	err := h.service.PingDB()
 
 	if err != nil {
 		h.logger.Warn("Error sql connection", zap.Error(err))

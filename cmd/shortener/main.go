@@ -16,7 +16,7 @@ import (
 	"github.com/al-tokarev/shortener/internal/logger"
 	"github.com/al-tokarev/shortener/internal/migrations"
 	"github.com/al-tokarev/shortener/internal/observer"
-	"github.com/al-tokarev/shortener/internal/observer/listeners/audit_listeners"
+	auditlisteners "github.com/al-tokarev/shortener/internal/observer/listeners/audit_listeners"
 	"github.com/al-tokarev/shortener/internal/repository/urlrepository"
 	"github.com/al-tokarev/shortener/internal/router"
 	"github.com/al-tokarev/shortener/internal/service/urlservices"
@@ -28,7 +28,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
 func main() {
+	printBuildInfo()
+
 	go func() {
 		log.Println("pprof server starting on :6060")
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -64,7 +72,7 @@ func run() error {
 			return fmt.Errorf("failed to ping db: %w", err)
 		}
 
-		URLRepository = urlrepository.NewDbRepository(conn, logger)
+		URLRepository = urlrepository.NewDBRepository(conn, logger)
 	} else {
 		URLRepository = urlrepository.NewLocalRepository(logger)
 		if err := URLRepository.InitializeStorage(); err != nil {
@@ -116,11 +124,17 @@ func registerEvents(d *observer.Dispatcher, l *zap.SugaredLogger) {
 		if err != nil {
 			l.Warnw("Error by open audit file", "err", err)
 		}
-		auditFileListener := audit_listeners.NewAuditFileListener(file)
+		auditFileListener := auditlisteners.NewAuditFileListener(file)
 		d.Subscribe("audit", auditFileListener)
 	}
 	if config.Options.AuditURL != "" {
-		auditURLListener := audit_listeners.NewAuditURLListener(config.Options.AuditURL)
+		auditURLListener := auditlisteners.NewAuditURLListener(config.Options.AuditURL)
 		d.Subscribe("audit", auditURLListener)
 	}
+}
+
+func printBuildInfo() {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
 }

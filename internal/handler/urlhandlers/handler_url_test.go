@@ -39,7 +39,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 	mockRepo := mocks.NewMockRepositoryInterface(ctrl)
 
 	mockRepo.EXPECT().Save(gomock.Any()).Return(nil).AnyTimes()
-	mockRepo.EXPECT().GetLastId().Return(0).AnyTimes()
+	mockRepo.EXPECT().GetLastID().Return(0).AnyTimes()
 	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("http://yandex.ru", nil).AnyTimes()
 	mockRepo.EXPECT().InitializeStorage().Return(nil).AnyTimes()
 	mockRepo.EXPECT().Ping().Return(nil).AnyTimes()
@@ -52,9 +52,9 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 	r := chi.NewRouter()
 	r.Use(compress.GzipMiddleware(testLogger))
 	r.Use(auth.AuthMiddleware)
-	r.Post("/", handler.GetShortenedUrl)
-	r.Post("/api/shorten", handler.GetJsonShortenedUrl)
-	r.Get("/{id}", handler.RedirectFullUrl)
+	r.Post("/", handler.GetShortenedURL)
+	r.Post("/api/shorten", handler.GetJSONShortenedURL)
+	r.Get("/{id}", handler.RedirectFullURL)
 
 	srv := httptest.NewServer(r)
 
@@ -67,7 +67,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *mocks.MockRepositoryInter
 	return srv, mockRepo, cleanup
 }
 
-func TestShortenUrl(t *testing.T) {
+func TestShortenURL(t *testing.T) {
 	srv, _, cleanup := setupTestServer(t)
 	defer cleanup()
 
@@ -241,7 +241,7 @@ func TestGzipCompression(t *testing.T) {
 	})
 }
 
-func TestRedirectUrl(t *testing.T) {
+func TestRedirectURL(t *testing.T) {
 	srv, _, cleanup := setupTestServer(t)
 	defer cleanup()
 

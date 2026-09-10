@@ -19,11 +19,11 @@ func NewRouter(handler *handler.Handler, log *zap.SugaredLogger) http.Handler {
 	r.Use(compress.GzipMiddleware(log))
 	r.Use(auth.AuthMiddleware)
 
-	r.Post("/", handler.URLHandler.GetShortenedUrl)
-	r.Post("/api/shorten", handler.URLHandler.GetJsonShortenedUrl)
-	r.Post("/api/shorten/batch", handler.URLHandler.GetJsonShortenedBatch)
+	r.Post("/", handler.URLHandler.GetShortenedURL)
+	r.Post("/api/shorten", handler.URLHandler.GetJSONShortenedURL)
+	r.Post("/api/shorten/batch", handler.URLHandler.GetJSONShortenedBatch)
 	r.Get("/api/user/urls", handler.URLHandler.GetUserURLs)
-	r.Get("/{id}", handler.URLHandler.RedirectFullUrl)
+	r.Get("/{id}", handler.URLHandler.RedirectFullURL)
 	r.Get("/ping", handler.URLHandler.PingHandler)
 	r.Delete("/api/user/urls", handler.URLHandler.DeleteUserURLs)
 

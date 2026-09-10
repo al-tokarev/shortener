@@ -36,8 +36,8 @@ func withChiParam(req *http.Request, key, value string) *http.Request {
 	return req.WithContext(ctx)
 }
 
-// ExampleURLHandler_GetShortenedUrl демонстрирует создание короткой ссылки.
-func ExampleURLHandler_GetShortenedUrl() {
+// ExampleURLHandler_GetShortenedURL демонстрирует создание короткой ссылки.
+func ExampleURLHandler_GetShortenedURL() {
 	handler := setupExampleHandler()
 
 	req := httptest.NewRequest(
@@ -49,7 +49,7 @@ func ExampleURLHandler_GetShortenedUrl() {
 	req = req.WithContext(auth.SetUserIDToContext(req.Context(), "user123"))
 
 	w := httptest.NewRecorder()
-	handler.GetShortenedUrl(w, req)
+	handler.GetShortenedURL(w, req)
 
 	fmt.Println("Status:", w.Code)
 	fmt.Println("Content-Type:", w.Header().Get("Content-Type"))
@@ -61,8 +61,8 @@ func ExampleURLHandler_GetShortenedUrl() {
 	// HasPrefix: true
 }
 
-// ExampleURLHandler_GetJsonShortenedUrl демонстрирует создание короткой ссылки через JSON.
-func ExampleURLHandler_GetJsonShortenedUrl() {
+// ExampleURLHandler_GetJSONShortenedURL демонстрирует создание короткой ссылки через JSON.
+func ExampleURLHandler_GetJSONShortenedURL() {
 	handler := setupExampleHandler()
 
 	jsonBody := `{"url": "https://example.com"}`
@@ -76,7 +76,7 @@ func ExampleURLHandler_GetJsonShortenedUrl() {
 	req = req.WithContext(auth.SetUserIDToContext(req.Context(), "user456"))
 
 	w := httptest.NewRecorder()
-	handler.GetJsonShortenedUrl(w, req)
+	handler.GetJSONShortenedURL(w, req)
 
 	fmt.Println("Status:", w.Code)
 	fmt.Println("Content-Type:", w.Header().Get("Content-Type"))
@@ -88,8 +88,8 @@ func ExampleURLHandler_GetJsonShortenedUrl() {
 	// HasResult: true
 }
 
-// ExampleURLHandler_RedirectFullUrl демонстрирует переход по короткой ссылке.
-func ExampleURLHandler_RedirectFullUrl() {
+// ExampleURLHandler_RedirectFullURL демонстрирует переход по короткой ссылке.
+func ExampleURLHandler_RedirectFullURL() {
 	handler := setupExampleHandler()
 
 	// Создаем короткую ссылку
@@ -102,7 +102,7 @@ func ExampleURLHandler_RedirectFullUrl() {
 	createReq = createReq.WithContext(auth.SetUserIDToContext(createReq.Context(), "user789"))
 
 	createW := httptest.NewRecorder()
-	handler.GetShortenedUrl(createW, createReq)
+	handler.GetShortenedURL(createW, createReq)
 
 	shortURL := strings.TrimPrefix(createW.Body.String(), config.Options.AddrResp+"/")
 
@@ -110,7 +110,7 @@ func ExampleURLHandler_RedirectFullUrl() {
 	req = withChiParam(req, "id", shortURL)
 
 	w := httptest.NewRecorder()
-	handler.RedirectFullUrl(w, req)
+	handler.RedirectFullURL(w, req)
 
 	fmt.Println("Status:", w.Code)
 	fmt.Println("Location:", w.Header().Get("Location"))

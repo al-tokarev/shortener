@@ -3,10 +3,10 @@
 package urlservices
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -77,31 +77,31 @@ func (s *URLService) Stop() {
 	s.logger.Info("All delete workers stopped")
 }
 
-// SetUrl создает короткую ссылку для оригинального URL.
+// SetURL создает короткую ссылку для оригинального URL.
 // Принимает оригинальный URL и идентификатор пользователя.
-// Возвращает созданную модель Url или ошибку.
+// Возвращает созданную модель URL или ошибку.
 // Если оригинальный URL уже существует, возвращает существующую ссылку.
-func (service *URLService) SetUrl(original string, userID string) (*model.Url, error) {
+func (s *URLService) SetURL(original string, userID string) (*model.URL, error) {
 	const maxAttempts = 10
 	currentAttempt := 1
-	var url model.Url
+	var url model.URL
 	var errorCreate error
 	for currentAttempt < maxAttempts {
-		url = model.Url{
-			Uuid:        service.repository.GetLastId() + 1,
-			ShortUrl:    service.GenerateShort(),
-			OriginalUrl: original,
+		url = model.URL{
+			UUID:        s.repository.GetLastID() + 1,
+			ShortURL:    s.GenerateShort(),
+			OriginalURL: original,
 			UserID:      userID,
 		}
-		errorCreate = service.repository.Save(&url)
+		errorCreate = s.repository.Save(&url)
 		if errors.Is(errorCreate, urlrepository.ErrShortURLAlreadyExists) {
-			service.logger.Debugw("Duplicate url by create", "Attempt", currentAttempt)
+			s.logger.Debugw("Duplicate url by create", "Attempt", currentAttempt)
 			currentAttempt++
 			continue
 		}
 		if errors.Is(errorCreate, urlrepository.ErrOriginalURLAlreadyExists) {
-			service.logger.Info("Duplicate original url by create", "Attempt")
-			url, err := service.repository.GetByOriginal(original)
+			s.logger.Info("Duplicate original url by create", "Attempt")
+			url, err := s.repository.GetByOriginal(original)
 			if err != nil {
 				return nil, err
 			}
@@ -113,43 +113,43 @@ func (service *URLService) SetUrl(original string, userID string) (*model.Url, e
 		return nil, errorCreate
 	}
 
-	service.logger.Infow("New url", "Original", url.OriginalUrl, "Short", url.ShortUrl)
+	s.logger.Infow("New url", "Original", url.OriginalURL, "Short", url.ShortURL)
 	return &url, nil
 }
 
 // GetUserURLs возвращает все ссылки, созданные пользователем.
 // Принимает идентификатор пользователя.
 // Возвращает слайс URL или ошибку.
-func (service *URLService) GetUserURLs(userID string) (*[]model.Url, error) {
-	service.logger.Infow("Getting user URLs", "user_id", userID)
-	return service.repository.GetUserURLs(userID)
+func (s *URLService) GetUserURLs(userID string) (*[]model.URL, error) {
+	s.logger.Infow("Getting user URLs", "user_id", userID)
+	return s.repository.GetUserURLs(userID)
 }
 
 // SetBatch создает несколько коротких ссылок одновременно.
 // Принимает слайс запросов на создание и идентификатор пользователя.
 // Возвращает слайс созданных ссылок с идентификаторами корреляции.
-func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID string) (*[]model.UrlBatch, error) {
-	urls := []model.Url{}
-	urlsBatch := []model.UrlBatch{}
+func (s *URLService) SetBatch(batchUrls *[]model.RequestBatchURL, userID string) (*[]model.URLBatch, error) {
+	urls := []model.URL{}
+	urlsBatch := []model.URLBatch{}
 
-	lastId := service.repository.GetLastId() + 1
-	for _, bUrl := range *batchUrls {
-		url := model.Url{
-			Uuid:        lastId,
-			ShortUrl:    service.GenerateShort(),
-			OriginalUrl: bUrl.OriginalUrl,
+	lastID := s.repository.GetLastID() + 1
+	for _, bURL := range *batchUrls {
+		url := model.URL{
+			UUID:        lastID,
+			ShortURL:    s.GenerateShort(),
+			OriginalURL: bURL.OriginalURL,
 			UserID:      userID,
 		}
 		urls = append(urls, url)
-		urlsBatch = append(urlsBatch, model.UrlBatch{
-			CorrelationId: bUrl.CorrelationId,
-			Url:           &url,
+		urlsBatch = append(urlsBatch, model.URLBatch{
+			CorrelationID: bURL.CorrelationID,
+			URL:           &url,
 		})
 
-		lastId++
+		lastID++
 	}
 
-	errorCreate := service.repository.SaveBatch(&urls)
+	errorCreate := s.repository.SaveBatch(&urls)
 	if errorCreate != nil {
 		return nil, errorCreate
 	}
@@ -157,22 +157,22 @@ func (service *URLService) SetBatch(batchUrls *[]model.RequestBatchUrl, userID s
 	return &urlsBatch, nil
 }
 
-// GetFullUrl возвращает оригинальный URL по короткому идентификатору.
+// GetFullURL возвращает оригинальный URL по короткому идентификатору.
 // Принимает короткий идентификатор ссылки.
 // Возвращает оригинальный URL или ошибку.
-func (service *URLService) GetFullUrl(short string) (string, error) {
-	url, err := service.repository.GetOriginalByShort(short)
+func (s *URLService) GetFullURL(short string) (string, error) {
+	url, err := s.repository.GetOriginalByShort(short)
 	if err != nil {
 		return "", err
 	}
-	service.logger.Infow("URL is finded")
+	s.logger.Infow("URL is finded")
 	return url, nil
 }
 
 // GenerateShort генерирует случайный короткий идентификатор.
 // Использует криптографически безопасный генератор случайных чисел.
 // Возвращает строку из 8 символов.
-func (service *URLService) GenerateShort() string {
+func (s *URLService) GenerateShort() string {
 	b := make([]byte, 6)
 	if _, err := rand.Read(b); err != nil {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
@@ -200,6 +200,6 @@ func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 
 // PingDb проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
-func (service *URLService) PingDb() error {
-	return service.repository.Ping()
+func (s *URLService) PingDB() error {
+	return s.repository.Ping()
 }

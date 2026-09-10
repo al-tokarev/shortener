@@ -33,7 +33,7 @@ func setupBenchmarkHandler(b *testing.B) (*URLHandler, func()) {
 	mockRepo := mocks.NewMockRepositoryInterface(ctrl)
 
 	mockRepo.EXPECT().Save(gomock.Any()).Return(nil).AnyTimes()
-	mockRepo.EXPECT().GetLastId().Return(0).AnyTimes()
+	mockRepo.EXPECT().GetLastID().Return(0).AnyTimes()
 	mockRepo.EXPECT().GetOriginalByShort(gomock.Any()).Return("http://yandex.ru", nil).AnyTimes()
 	mockRepo.EXPECT().InitializeStorage().Return(nil).AnyTimes()
 	mockRepo.EXPECT().Ping().Return(nil).AnyTimes()
@@ -50,7 +50,7 @@ func setupBenchmarkHandler(b *testing.B) (*URLHandler, func()) {
 	return handler, cleanup
 }
 
-func BenchmarkGetShortenedUrl(b *testing.B) {
+func BenchmarkGetShortenedURL(b *testing.B) {
 	handler, cleanup := setupBenchmarkHandler(b)
 	defer cleanup()
 
@@ -62,11 +62,11 @@ func BenchmarkGetShortenedUrl(b *testing.B) {
 		req.Header.Set("Content-Type", "text/plain")
 		w := httptest.NewRecorder()
 
-		handler.GetShortenedUrl(w, req)
+		handler.GetShortenedURL(w, req)
 	}
 }
 
-func BenchmarkGetJsonShortenedUrl(b *testing.B) {
+func BenchmarkGetJSONShortenedURL(b *testing.B) {
 	handler, cleanup := setupBenchmarkHandler(b)
 	defer cleanup()
 
@@ -78,11 +78,11 @@ func BenchmarkGetJsonShortenedUrl(b *testing.B) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
-		handler.GetJsonShortenedUrl(w, req)
+		handler.GetJSONShortenedURL(w, req)
 	}
 }
 
-func BenchmarkRedirectFullUrl(b *testing.B) {
+func BenchmarkRedirectFullURL(b *testing.B) {
 	handler, cleanup := setupBenchmarkHandler(b)
 	defer cleanup()
 
@@ -91,6 +91,6 @@ func BenchmarkRedirectFullUrl(b *testing.B) {
 		req := httptest.NewRequest("GET", "/abc123", nil)
 		w := httptest.NewRecorder()
 
-		handler.RedirectFullUrl(w, req)
+		handler.RedirectFullURL(w, req)
 	}
 }

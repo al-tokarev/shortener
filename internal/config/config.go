@@ -26,8 +26,8 @@ func RunFlags() {
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
 		Options.AddrServe = envServAddr
 	}
-	if envBaseUrl, ok := os.LookupEnv("BASE_URL"); ok {
-		Options.AddrResp = envBaseUrl
+	if envBaseURL, ok := os.LookupEnv("BASE_URL"); ok {
+		Options.AddrResp = envBaseURL
 	}
 	if envStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
 		Options.StoragePath = envStoragePath

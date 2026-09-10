@@ -13,8 +13,8 @@ import (
 
 type LocalRepository struct {
 	logger     *zap.SugaredLogger
-	lastId     int
-	storageUrl map[string]*model.Url
+	lastID     int
+	storageURL map[string]*model.URL
 	creator    *urlFileCreator
 	mutex      sync.RWMutex
 }
@@ -28,20 +28,20 @@ func NewLocalRepository(logger *zap.SugaredLogger) *LocalRepository {
 // ИНИЦИАЛИЗАЦИЯ
 
 func (repository *LocalRepository) InitializeStorage() error {
-	reader, err := repository.newUrlReader()
+	reader, err := repository.newURLReader()
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
 
-	creator, err := repository.newFileUrlCreator()
+	creator, err := repository.newFileURLCreator()
 	if err != nil {
 		return err
 	}
 	repository.creator = creator
 
-	tmpLastId := 0
-	tmpStorage := make(map[string]*model.Url)
+	tmpLastID := 0
+	tmpStorage := make(map[string]*model.URL)
 	for {
 		url, err := reader.read()
 		if url == nil {
@@ -51,15 +51,15 @@ func (repository *LocalRepository) InitializeStorage() error {
 			return err
 		}
 
-		tmpStorage[url.ShortUrl] = url
-		if tmpLastId < url.Uuid {
-			tmpLastId = url.Uuid
+		tmpStorage[url.ShortURL] = url
+		if tmpLastID < url.UUID {
+			tmpLastID = url.UUID
 		}
 	}
 
 	repository.mutex.Lock()
-	repository.storageUrl = tmpStorage
-	repository.lastId = tmpLastId
+	repository.storageURL = tmpStorage
+	repository.lastID = tmpLastID
 	repository.mutex.Unlock()
 
 	repository.logger.Info("Local repository is initialize")
@@ -68,7 +68,7 @@ func (repository *LocalRepository) InitializeStorage() error {
 
 // ЗАПИСЬ
 
-func (repository *LocalRepository) Save(url *model.Url) error {
+func (repository *LocalRepository) Save(url *model.URL) error {
 	data, err := json.Marshal(url)
 	if err != nil {
 		repository.logger.Warn("Error by add url", err)
@@ -78,7 +78,7 @@ func (repository *LocalRepository) Save(url *model.Url) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
-	if _, ok := repository.storageUrl[url.ShortUrl]; ok {
+	if _, ok := repository.storageURL[url.ShortURL]; ok {
 		return ErrShortURLAlreadyExists
 	}
 
@@ -88,12 +88,12 @@ func (repository *LocalRepository) Save(url *model.Url) error {
 	}
 
 	// добавление в память
-	repository.storageUrl[url.ShortUrl] = url
-	repository.lastId = url.Uuid
+	repository.storageURL[url.ShortURL] = url
+	repository.lastID = url.UUID
 	return nil
 }
 
-func (repository *LocalRepository) SaveBatch(urls *[]model.Url) error {
+func (repository *LocalRepository) SaveBatch(urls *[]model.URL) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
@@ -109,8 +109,8 @@ func (repository *LocalRepository) SaveBatch(urls *[]model.Url) error {
 			return err
 		}
 
-		repository.storageUrl[url.ShortUrl] = url
-		repository.lastId = url.Uuid
+		repository.storageURL[url.ShortURL] = url
+		repository.lastID = url.UUID
 	}
 
 	return nil
@@ -120,34 +120,34 @@ func (repository *LocalRepository) SaveBatch(urls *[]model.Url) error {
 
 func (repository *LocalRepository) GetOriginalByShort(short string) (string, error) {
 	repository.mutex.RLock()
-	url, ok := repository.storageUrl[short]
+	url, ok := repository.storageURL[short]
 	repository.mutex.RUnlock()
 	if !ok {
 		return "", ErrURLNotFound
 	}
-	return url.OriginalUrl, nil
+	return url.OriginalURL, nil
 }
 
-func (repository *LocalRepository) GetByOriginal(original string) (*model.Url, error) {
+func (repository *LocalRepository) GetByOriginal(original string) (*model.URL, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
-	for _, url := range repository.storageUrl {
-		if url.OriginalUrl == original {
+	for _, url := range repository.storageURL {
+		if url.OriginalURL == original {
 			return url, nil
 		}
 	}
 	return nil, ErrURLNotFound
 }
 
-func (repository *LocalRepository) GetUserURLs(userID string) (*[]model.Url, error) {
+func (repository *LocalRepository) GetUserURLs(userID string) (*[]model.URL, error) {
 	repository.logger.Infow("Get user URLs from local storage", "user_id", userID)
 
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
-	var urls []model.Url
-	for _, url := range repository.storageUrl {
+	var urls []model.URL
+	for _, url := range repository.storageURL {
 		if url.UserID == userID {
 			urls = append(urls, *url)
 		}
@@ -162,18 +162,18 @@ func (repository *LocalRepository) BatchDelete(shortIDs []string, userID string)
 	defer repository.mutex.Unlock()
 
 	for _, shortID := range shortIDs {
-		if url, ok := repository.storageUrl[shortID]; ok && url.UserID == userID {
+		if url, ok := repository.storageURL[shortID]; ok && url.UserID == userID {
 			url.IsDeleted = true
-			repository.storageUrl[shortID] = url
+			repository.storageURL[shortID] = url
 		}
 	}
 	return nil
 }
 
-func (repository *LocalRepository) GetLastId() int {
+func (repository *LocalRepository) GetLastID() int {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
-	return repository.lastId
+	return repository.lastID
 }
 
 func (repository *LocalRepository) Ping() error {
@@ -194,7 +194,7 @@ type urlFileReader struct {
 
 // ЗАПИСЬ В ФАЙЛ
 
-func (repository *LocalRepository) newFileUrlCreator() (*urlFileCreator, error) {
+func (repository *LocalRepository) newFileURLCreator() (*urlFileCreator, error) {
 	file, err := os.OpenFile(config.Options.StoragePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ func (creator *urlFileCreator) Close() error {
 
 // ЧТЕНИЕ ИЗ ФАЙЛА
 
-func (repository *LocalRepository) newUrlReader() (*urlFileReader, error) {
+func (repository *LocalRepository) newURLReader() (*urlFileReader, error) {
 	file, err := os.OpenFile(config.Options.StoragePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
@@ -237,14 +237,14 @@ func (repository *LocalRepository) newUrlReader() (*urlFileReader, error) {
 	}, nil
 }
 
-func (reader *urlFileReader) read() (*model.Url, error) {
+func (reader *urlFileReader) read() (*model.URL, error) {
 	if !reader.s.Scan() {
 		return nil, reader.s.Err()
 	}
 
 	data := reader.s.Bytes()
 
-	url := model.Url{}
+	url := model.URL{}
 	err := json.Unmarshal(data, &url)
 	if err != nil {
 		return nil, err

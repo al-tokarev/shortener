@@ -1,26 +1,35 @@
 // Пакет model содержит основные модели, в т.ч. модели запросов и ответов сервера
 package model
 
-// Url представляет собой модель короткой ссылки.
+// generate:reset
+// URL представляет собой модель короткой ссылки.
 // Содержит информацию об оригинальном URL, коротком идентификаторе и владельце.
-type Url struct {
-	Uuid        int    `json:"uuid"`
-	ShortUrl    string `json:"short_url"`
-	OriginalUrl string `json:"original_url"`
+type URL struct {
+	UUID        int    `json:"uuid"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
 	UserID      string `json:"user_id"`
 	IsDeleted   bool   `json:"is_deleted"`
 }
 
-// UrlBatch представляет собой связку короткой ссылки с идентификатором корреляции.
+// generate:reset
+type Example struct {
+	x, y int
+	g    bool
+	mapa map[string]int
+}
+
+// generate:reset
+// URLBatch представляет собой связку короткой ссылки с идентификатором корреляции.
 // Используется при пакетном создании коротких ссылок.
-type UrlBatch struct {
-	CorrelationId string
-	Url           *Url
+type URLBatch struct {
+	CorrelationID string
+	URL           *URL
 }
 
 // Request представляет собой запрос на создание короткой ссылки.
 type Request struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 // Response представляет собой ответ с укороченной ссылкой.
@@ -28,20 +37,20 @@ type Response struct {
 	Result string `json:"result"`
 }
 
-// RequestBatchUrl представляет собой запрос на пакетное создание коротких ссылок.
-type RequestBatchUrl struct {
-	CorrelationId string `json:"correlation_id"`
-	OriginalUrl   string `json:"original_url"`
+// RequestBatchURL представляет собой запрос на пакетное создание коротких ссылок.
+type RequestBatchURL struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
 }
 
-// ResponseBatchUrl представляет собой ответ с укороченной ссылкой для пакетного запроса.
-type ResponseBatchUrl struct {
-	CorrelationId string `json:"correlation_id"`
-	ShortUrl      string `json:"short_url"`
+// ResponseBatchURL представляет собой ответ с укороченной ссылкой для пакетного запроса.
+type ResponseBatchURL struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
 }
 
-// ResponseUserUrl представляет собой ответ со ссылками пользователя.
-type ResponseUserUrl struct {
-	ShortUrl    string `json:"short_url"`
-	OriginalUrl string `json:"original_url"`
+// ResponseUserURL представляет собой ответ со ссылками пользователя.
+type ResponseUserURL struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
 }
