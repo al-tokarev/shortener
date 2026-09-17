@@ -1,22 +1,25 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"strconv"
 )
 
 var Options struct {
-	AddrServe   string
-	AddrResp    string
-	StoragePath string
-	DatabaseDSN string
+	AddrServe   string `json:"server_address"`
+	AddrResp    string `json:"base_url"`
+	StoragePath string `json:"file_storage_path"`
+	DatabaseDSN string `json:"database_dsn"`
 	AuditFile   string
 	AuditURL    string
-	EnableHTTPS bool
+	EnableHTTPS bool `json:"enable_https"`
 }
 
-func RunFlags() {
+func RunFlags() error {
+	pathJsonConfig := ""
+
 	flag.StringVar(&Options.AddrServe, "a", "localhost:8080", "Address server")
 	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
 	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
@@ -24,7 +27,21 @@ func RunFlags() {
 	flag.StringVar(&Options.AuditFile, "audit-file", "", "audit file listener")
 	flag.StringVar(&Options.AuditURL, "audit-url", "", "audit url listener")
 	flag.BoolVar(&Options.EnableHTTPS, "s", Options.EnableHTTPS, "enable HTTPS")
+	flag.StringVar(&pathJsonConfig, "c", pathJsonConfig, "path for config from json")
+	flag.StringVar(&pathJsonConfig, "config", pathJsonConfig, "path for config from json")
 	flag.Parse()
+
+	if pathJsonConfig != "" {
+		file, err := os.Open(pathJsonConfig)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		if err := json.NewDecoder(file).Decode(&Options); err != nil {
+			return err
+		}
+	}
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
 		Options.AddrServe = envServAddr
@@ -49,4 +66,6 @@ func RunFlags() {
 			Options.EnableHTTPS = parsed
 		}
 	}
+
+	return nil
 }

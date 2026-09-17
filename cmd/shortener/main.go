@@ -49,10 +49,13 @@ func main() {
 }
 
 func run() error {
-	config.RunFlags()
+	if err := config.RunFlags(); err != nil {
+		return fmt.Errorf("Failed run config: %v", err)
+	}
+
 	logger, err := logger.NewLogger()
 	if err != nil {
-		log.Fatalf("failed to initialize logger: %v", err)
+		return fmt.Errorf("failed to initialize logger: %v", err)
 	}
 
 	dispatcher := observer.NewDispatcher(logger)
