@@ -54,7 +54,7 @@ func main() {
 
 func run() error {
 	if err := config.RunFlags(); err != nil {
-		return fmt.Errorf("Failed run config: %v", err)
+		return fmt.Errorf("failed run config: %v", err)
 	}
 
 	logger, err := logger.NewLogger()
