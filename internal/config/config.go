@@ -18,7 +18,7 @@ var Options struct {
 }
 
 func RunFlags() error {
-	pathJsonConfig := ""
+	pathJSONConfig := ""
 
 	flag.StringVar(&Options.AddrServe, "a", "localhost:8080", "Address server")
 	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
@@ -27,12 +27,12 @@ func RunFlags() error {
 	flag.StringVar(&Options.AuditFile, "audit-file", "", "audit file listener")
 	flag.StringVar(&Options.AuditURL, "audit-url", "", "audit url listener")
 	flag.BoolVar(&Options.EnableHTTPS, "s", Options.EnableHTTPS, "enable HTTPS")
-	flag.StringVar(&pathJsonConfig, "c", pathJsonConfig, "path for config from json")
-	flag.StringVar(&pathJsonConfig, "config", pathJsonConfig, "path for config from json")
+	flag.StringVar(&pathJSONConfig, "c", pathJSONConfig, "path for config from json")
+	flag.StringVar(&pathJSONConfig, "config", pathJSONConfig, "path for config from json")
 	flag.Parse()
 
-	if pathJsonConfig != "" {
-		file, err := os.Open(pathJsonConfig)
+	if pathJSONConfig != "" {
+		file, err := os.Open(pathJSONConfig)
 		if err != nil {
 			return err
 		}

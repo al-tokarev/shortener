@@ -131,13 +131,13 @@ func run() error {
 			return err
 		}
 
-		err = server.ListenAndServeTLS(cert.CertFile, cert.KeyFile)
+		if err := server.ListenAndServeTLS(cert.CertFile, cert.KeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 	} else {
-		err = server.ListenAndServe()
-	}
-
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 	}
 
 	<-idleConnsClosed
