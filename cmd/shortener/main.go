@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "net/http/pprof"
@@ -100,6 +104,25 @@ func run() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	idleConnsClosed := make(chan struct{})
+
+	go func() {
+		sig := <-sigCh
+		logger.Infow("shutdown signal received", "signal", sig.String())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			logger.Errorw("server shutdown error", "error", err)
+		}
+
+		close(idleConnsClosed)
+	}()
+
 	logger.Infow("Server is starting", "addr", server.Addr)
 
 	if config.Options.EnableHTTPS {
@@ -108,10 +131,17 @@ func run() error {
 			return err
 		}
 
-		return server.ListenAndServeTLS(cert.CertFile, cert.KeyFile)
+		err = server.ListenAndServeTLS(cert.CertFile, cert.KeyFile)
+	} else {
+		err = server.ListenAndServe()
 	}
 
-	return server.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	<-idleConnsClosed
+	return nil
 }
 
 func runMigrations(dsn string) error {
