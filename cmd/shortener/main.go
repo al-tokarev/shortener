@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "net/http/pprof"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/crypto/certs"
 	"github.com/al-tokarev/shortener/internal/handler"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
@@ -48,10 +53,13 @@ func main() {
 }
 
 func run() error {
-	config.RunFlags()
+	if err := config.RunFlags(); err != nil {
+		return fmt.Errorf("failed run config: %v", err)
+	}
+
 	logger, err := logger.NewLogger()
 	if err != nil {
-		log.Fatalf("failed to initialize logger: %v", err)
+		return fmt.Errorf("failed to initialize logger: %v", err)
 	}
 
 	dispatcher := observer.NewDispatcher(logger)
@@ -96,8 +104,44 @@ func run() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	idleConnsClosed := make(chan struct{})
+
+	go func() {
+		sig := <-sigCh
+		logger.Infow("shutdown signal received", "signal", sig.String())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			logger.Errorw("server shutdown error", "error", err)
+		}
+
+		close(idleConnsClosed)
+	}()
+
 	logger.Infow("Server is starting", "addr", server.Addr)
-	return server.ListenAndServe()
+
+	if config.Options.EnableHTTPS {
+		cert, err := certs.CreateX509Cert()
+		if err != nil {
+			return err
+		}
+
+		if err := server.ListenAndServeTLS(cert.CertFile, cert.KeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	} else {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	}
+
+	<-idleConnsClosed
+	return nil
 }
 
 func runMigrations(dsn string) error {
