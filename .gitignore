@@ -27,3 +27,6 @@ storage.txt
 
 #Macos
 *.DS_Store
+
+#keys
+*.pem

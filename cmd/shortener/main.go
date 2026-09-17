@@ -11,6 +11,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/al-tokarev/shortener/internal/config"
+	"github.com/al-tokarev/shortener/internal/crypto/certs"
 	"github.com/al-tokarev/shortener/internal/handler"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
@@ -97,6 +98,16 @@ func run() error {
 	}
 
 	logger.Infow("Server is starting", "addr", server.Addr)
+
+	if config.Options.EnableHTTPS {
+		cert, err := certs.CreateX509Cert()
+		if err != nil {
+			return err
+		}
+
+		return server.ListenAndServeTLS(cert.CertFile, cert.KeyFile)
+	}
+
 	return server.ListenAndServe()
 }
 

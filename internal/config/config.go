@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"os"
+	"strconv"
 )
 
 var Options struct {
@@ -12,6 +13,7 @@ var Options struct {
 	DatabaseDSN string
 	AuditFile   string
 	AuditURL    string
+	EnableHTTPS bool
 }
 
 func RunFlags() {
@@ -21,6 +23,7 @@ func RunFlags() {
 	flag.StringVar(&Options.DatabaseDSN, "d", "", "Database connection string")
 	flag.StringVar(&Options.AuditFile, "audit-file", "", "audit file listener")
 	flag.StringVar(&Options.AuditURL, "audit-url", "", "audit url listener")
+	flag.BoolVar(&Options.EnableHTTPS, "s", Options.EnableHTTPS, "enable HTTPS")
 	flag.Parse()
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
@@ -40,5 +43,10 @@ func RunFlags() {
 	}
 	if envAuditURL, ok := os.LookupEnv("AUDIT_URL"); ok {
 		Options.AuditURL = envAuditURL
+	}
+	if envEnableHTTPS, ok := os.LookupEnv("ENABLE_HTTPS"); ok {
+		if parsed, err := strconv.ParseBool(envEnableHTTPS); err == nil {
+			Options.EnableHTTPS = parsed
+		}
 	}
 }
