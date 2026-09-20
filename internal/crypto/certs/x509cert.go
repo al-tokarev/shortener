@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -25,7 +26,23 @@ func CreateX509Cert() (*Cert, error) {
 	exist1, err1 := filehelpers.FileExist(filepath.Join(homeDir, "cert.pem"))
 	exist2, err2 := filehelpers.FileExist(filepath.Join(homeDir, "private.pem"))
 
-	if !exist1 && !exist2 && err1 == nil && err2 == nil {
+	if err1 != nil {
+		return nil, err1
+	}
+	if err2 != nil {
+		return nil, err2
+	}
+
+	if !exist1 && !exist2 {
+
+	} else if exist1 && exist2 {
+
+	} else {
+		return nil, fmt.Errorf("inconsistent cert state")
+	}
+
+	switch {
+	case !exist1 && !exist2:
 		cert := &x509.Certificate{
 			SerialNumber: big.NewInt(1462),
 			Subject: pkix.Name{
@@ -72,13 +89,12 @@ func CreateX509Cert() (*Cert, error) {
 			return nil, err
 		}
 
-		if err = os.WriteFile(filepath.Join(homeDir, "private.pem"), privateKeyPEM.Bytes(), 0644); err != nil {
+		if err = os.WriteFile(filepath.Join(homeDir, "private.pem"), privateKeyPEM.Bytes(), 0600); err != nil {
 			return nil, err
 		}
-	} else if err1 != nil {
-		return nil, err1
-	} else if err2 != nil {
-		return nil, err2
+	case exist1 && exist2:
+	default:
+		return nil, fmt.Errorf("inconsistent cert state")
 	}
 
 	return &Cert{

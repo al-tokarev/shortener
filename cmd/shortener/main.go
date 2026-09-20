@@ -104,14 +104,13 @@ func run() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	gshCtx, gshCancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer gshCancel()
 
 	idleConnsClosed := make(chan struct{})
-
 	go func() {
-		sig := <-sigCh
-		logger.Infow("shutdown signal received", "signal", sig.String())
+		<-gshCtx.Done()
+		logger.Infow("shutdown signal received")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()

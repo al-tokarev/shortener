@@ -19,16 +19,20 @@ var Options struct {
 
 func RunFlags() error {
 	pathJSONConfig := ""
+	if envConfig, ok := os.LookupEnv("CONFIG"); ok {
+		pathJSONConfig = envConfig
+	}
 
-	flag.StringVar(&Options.AddrServe, "a", "localhost:8080", "Address server")
-	flag.StringVar(&Options.AddrResp, "b", "http://localhost:8080", "Address response")
-	flag.StringVar(&Options.StoragePath, "f", "storage.txt", "Storage Path")
-	flag.StringVar(&Options.DatabaseDSN, "d", "", "Database connection string")
-	flag.StringVar(&Options.AuditFile, "audit-file", "", "audit file listener")
-	flag.StringVar(&Options.AuditURL, "audit-url", "", "audit url listener")
-	flag.BoolVar(&Options.EnableHTTPS, "s", Options.EnableHTTPS, "enable HTTPS")
-	flag.StringVar(&pathJSONConfig, "c", pathJSONConfig, "path for config from json")
-	flag.StringVar(&pathJSONConfig, "config", pathJSONConfig, "path for config from json")
+	flagAddrServe := flag.String("a", "localhost:8080", "Address server")
+	flagAddrResp := flag.String("b", "http://localhost:8080", "Address response")
+	flagStoragePath := flag.String("f", "storage.txt", "Storage Path")
+	flagDatabaseDSN := flag.String("d", "", "Database connection string")
+	flagAuditFile := flag.String("audit-file", "", "audit file listener")
+	flagAuditURL := flag.String("audit-url", "", "audit url listener")
+	flagEnableHTTPS := flag.Bool("s", false, "enable HTTPS")
+	flag.StringVar(&pathJSONConfig, "c", pathJSONConfig, "config path")
+	flag.StringVar(&pathJSONConfig, "config", pathJSONConfig, "config path")
+
 	flag.Parse()
 
 	if pathJSONConfig != "" {
@@ -41,6 +45,33 @@ func RunFlags() error {
 		if err := json.NewDecoder(file).Decode(&Options); err != nil {
 			return err
 		}
+	}
+
+	passed := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		passed[f.Name] = true
+	})
+
+	if passed["a"] {
+		Options.AddrServe = *flagAddrServe
+	}
+	if passed["b"] {
+		Options.AddrResp = *flagAddrResp
+	}
+	if passed["f"] {
+		Options.StoragePath = *flagStoragePath
+	}
+	if passed["d"] {
+		Options.DatabaseDSN = *flagDatabaseDSN
+	}
+	if passed["audit-file"] {
+		Options.AuditFile = *flagAuditFile
+	}
+	if passed["audit-url"] {
+		Options.AuditURL = *flagAuditURL
+	}
+	if passed["s"] {
+		Options.EnableHTTPS = *flagEnableHTTPS
 	}
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {

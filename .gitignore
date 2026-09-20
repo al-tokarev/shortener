@@ -11,6 +11,9 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+#config
+config.json
+
 # Binaries
 cmd/shortener/main
 cmd/shortener/shortener
@@ -26,7 +29,8 @@ vendor/
 storage.txt
 
 #Macos
-*.DS_Store
+**.DS_Store
+.DS_Store
 
 #keys
 *.pem
