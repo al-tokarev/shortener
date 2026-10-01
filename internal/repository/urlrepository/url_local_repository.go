@@ -176,6 +176,10 @@ func (repository *LocalRepository) GetLastID() int {
 	return repository.lastID
 }
 
+func (repository *LocalRepository) GetStat() (int, int, error) {
+	return 0, 0, nil
+}
+
 func (repository *LocalRepository) Ping() error {
 	return nil
 }

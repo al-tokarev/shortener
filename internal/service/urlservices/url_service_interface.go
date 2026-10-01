@@ -9,5 +9,6 @@ type URLServiceInterface interface {
 	GetFullURL(short string) (string, error)
 	GenerateShort() string
 	DeleteUserURLs(shortIDs []string, userID string)
+	GetStat() (int, int, error)
 	PingDB() error
 }

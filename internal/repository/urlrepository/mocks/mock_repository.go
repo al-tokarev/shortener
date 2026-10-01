@@ -92,6 +92,22 @@ func (mr *MockRepositoryInterfaceMockRecorder) GetOriginalByShort(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalByShort", reflect.TypeOf((*MockRepositoryInterface)(nil).GetOriginalByShort), arg0)
 }
 
+// GetStat mocks base method.
+func (m *MockRepositoryInterface) GetStat() (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStat")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStat indicates an expected call of GetStat.
+func (mr *MockRepositoryInterfaceMockRecorder) GetStat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStat", reflect.TypeOf((*MockRepositoryInterface)(nil).GetStat))
+}
+
 // GetUserURLs mocks base method.
 func (m *MockRepositoryInterface) GetUserURLs(arg0 string) (*[]model.URL, error) {
 	m.ctrl.T.Helper()

@@ -12,6 +12,7 @@ type RepositoryInterface interface {
 	GetOriginalByShort(short string) (string, error)
 	GetByOriginal(original string) (*model.URL, error)
 	GetUserURLs(userID string) (*[]model.URL, error)
+	GetStat() (int, int, error)
 	GetLastID() int
 	Ping() error
 }

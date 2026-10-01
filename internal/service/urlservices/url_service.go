@@ -198,6 +198,15 @@ func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 	s.logger.Infow("Delete task queued", "count", len(shortIDs), "user_id", userID)
 }
 
+// GetStat возвращает кол-во url и пользователей
+func (s *URLService) GetStat() (int, int, error) {
+	countUsers, countURLs, err := s.repository.GetStat()
+	if err != nil {
+		return 0, 0, err
+	}
+	return countUsers, countURLs, nil
+}
+
 // PingDb проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
 func (s *URLService) PingDB() error {

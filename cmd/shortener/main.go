@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/al-tokarev/shortener/internal/config"
 	"github.com/al-tokarev/shortener/internal/crypto/certs"
+	grpcserver "github.com/al-tokarev/shortener/internal/grpc"
+	pb "github.com/al-tokarev/shortener/internal/grpc/grpcgen"
 	"github.com/al-tokarev/shortener/internal/handler"
 	"github.com/al-tokarev/shortener/internal/handler/urlhandlers"
 	"github.com/al-tokarev/shortener/internal/logger"
@@ -31,6 +34,9 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -68,6 +74,7 @@ func run() error {
 
 	var conn *sql.DB
 	var URLRepository urlrepository.RepositoryInterface
+
 	if config.Options.DatabaseDSN != "" {
 		if err := runMigrations(config.Options.DatabaseDSN); err != nil {
 			logger.Fatalw("Failed to run migrations", "error", err)
@@ -104,6 +111,13 @@ func run() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 
+	grpcSrv, grpcLis, err := startGRPC(URLService, logger)
+	if err != nil {
+		return fmt.Errorf("start grpc: %w", err)
+	}
+	defer grpcSrv.GracefulStop()
+	defer grpcLis.Close()
+
 	gshCtx, gshCancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer gshCancel()
 
@@ -119,7 +133,25 @@ func run() error {
 			logger.Errorw("server shutdown error", "error", err)
 		}
 
+		done := make(chan struct{})
+		go func() {
+			grpcSrv.GracefulStop()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			grpcSrv.Stop()
+		}
+
 		close(idleConnsClosed)
+	}()
+
+	go func() {
+		logger.Infow("gRPC server starting", "addr", config.Options.GRPCAddr)
+		if err := grpcSrv.Serve(grpcLis); err != nil {
+			logger.Errorw("grpc serve failed", "error", err)
+		}
 	}()
 
 	logger.Infow("Server is starting", "addr", server.Addr)
@@ -141,6 +173,36 @@ func run() error {
 
 	<-idleConnsClosed
 	return nil
+}
+
+// startGRPC создаёт и настраивает gRPC-сервер.
+func startGRPC(svc urlservices.URLServiceInterface, logger *zap.SugaredLogger) (*grpc.Server, net.Listener, error) {
+	lis, err := net.Listen("tcp", config.Options.GRPCAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("listen %s: %w", config.Options.GRPCAddr, err)
+	}
+
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(grpcserver.AuthInterceptor()),
+	}
+
+	if config.Options.EnableHTTPS {
+		cert, err := certs.CreateX509Cert()
+		if err != nil {
+			return nil, nil, fmt.Errorf("create cert: %w", err)
+		}
+		creds, err := credentials.NewServerTLSFromFile(cert.CertFile, cert.KeyFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("grpc tls: %w", err)
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	s := grpc.NewServer(opts...)
+	pb.RegisterShortenerServiceServer(s, grpcserver.NewServer(svc, logger))
+	reflection.Register(s)
+
+	return s, lis, nil
 }
 
 func runMigrations(dsn string) error {

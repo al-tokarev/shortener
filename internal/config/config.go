@@ -8,13 +8,15 @@ import (
 )
 
 var Options struct {
-	AddrServe   string `json:"server_address"`
-	AddrResp    string `json:"base_url"`
-	StoragePath string `json:"file_storage_path"`
-	DatabaseDSN string `json:"database_dsn"`
-	AuditFile   string
-	AuditURL    string
-	EnableHTTPS bool `json:"enable_https"`
+	AddrServe     string `json:"server_address"`
+	GRPCAddr      string `json:"grpc_address"`
+	AddrResp      string `json:"base_url"`
+	StoragePath   string `json:"file_storage_path"`
+	DatabaseDSN   string `json:"database_dsn"`
+	AuditFile     string
+	AuditURL      string
+	EnableHTTPS   bool   `json:"enable_https"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 func RunFlags() error {
@@ -24,12 +26,14 @@ func RunFlags() error {
 	}
 
 	flagAddrServe := flag.String("a", "localhost:8080", "Address server")
+	flagGRPCServe := flag.String("g", "localhost:50051", "Address gRPC server")
 	flagAddrResp := flag.String("b", "http://localhost:8080", "Address response")
 	flagStoragePath := flag.String("f", "storage.txt", "Storage Path")
 	flagDatabaseDSN := flag.String("d", "", "Database connection string")
 	flagAuditFile := flag.String("audit-file", "", "audit file listener")
 	flagAuditURL := flag.String("audit-url", "", "audit url listener")
 	flagEnableHTTPS := flag.Bool("s", false, "enable HTTPS")
+	flagTrustedSubnet := flag.String("t", "", "trusted subnet")
 	flag.StringVar(&pathJSONConfig, "c", pathJSONConfig, "config path")
 	flag.StringVar(&pathJSONConfig, "config", pathJSONConfig, "config path")
 
@@ -55,6 +59,9 @@ func RunFlags() error {
 	if passed["a"] {
 		Options.AddrServe = *flagAddrServe
 	}
+	if passed["g"] {
+		Options.GRPCAddr = *flagGRPCServe
+	}
 	if passed["b"] {
 		Options.AddrResp = *flagAddrResp
 	}
@@ -73,9 +80,15 @@ func RunFlags() error {
 	if passed["s"] {
 		Options.EnableHTTPS = *flagEnableHTTPS
 	}
+	if passed["t"] {
+		Options.TrustedSubnet = *flagTrustedSubnet
+	}
 
 	if envServAddr, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
 		Options.AddrServe = envServAddr
+	}
+	if envAddrGROC, ok := os.LookupEnv("GRPC_ADDRESS"); ok {
+		Options.GRPCAddr = envAddrGROC
 	}
 	if envBaseURL, ok := os.LookupEnv("BASE_URL"); ok {
 		Options.AddrResp = envBaseURL
@@ -96,6 +109,9 @@ func RunFlags() error {
 		if parsed, err := strconv.ParseBool(envEnableHTTPS); err == nil {
 			Options.EnableHTTPS = parsed
 		}
+	}
+	if envTrustedSubnet, ok := os.LookupEnv("TRUSTED_SUBNET"); ok {
+		Options.TrustedSubnet = envTrustedSubnet
 	}
 
 	return nil
