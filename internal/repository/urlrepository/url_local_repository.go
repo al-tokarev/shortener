@@ -2,6 +2,7 @@ package urlrepository
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"sync"
@@ -176,7 +177,7 @@ func (repository *LocalRepository) GetLastID() int {
 	return repository.lastID
 }
 
-func (repository *LocalRepository) GetStat() (int, int, error) {
+func (repository *LocalRepository) GetStat(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
 }
 

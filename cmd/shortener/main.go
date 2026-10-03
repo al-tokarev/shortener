@@ -115,8 +115,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("start grpc: %w", err)
 	}
-	defer grpcSrv.GracefulStop()
-	defer grpcLis.Close()
 
 	gshCtx, gshCancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer gshCancel()
@@ -130,7 +128,7 @@ func run() error {
 		defer cancel()
 
 		if err := server.Shutdown(ctx); err != nil {
-			logger.Errorw("server shutdown error", "error", err)
+			logger.Errorw("http shutdown error", "error", err)
 		}
 
 		done := make(chan struct{})
@@ -138,9 +136,12 @@ func run() error {
 			grpcSrv.GracefulStop()
 			close(done)
 		}()
+
 		select {
 		case <-done:
+			logger.Info("grpc stopped gracefully")
 		case <-ctx.Done():
+			logger.Warn("grpc graceful stop timeout, forcing")
 			grpcSrv.Stop()
 		}
 
@@ -176,11 +177,17 @@ func run() error {
 }
 
 // startGRPC создаёт и настраивает gRPC-сервер.
-func startGRPC(svc urlservices.URLServiceInterface, logger *zap.SugaredLogger) (*grpc.Server, net.Listener, error) {
+func startGRPC(svc urlservices.URLServiceInterface, logger *zap.SugaredLogger) (_ *grpc.Server, _ net.Listener, err error) {
 	lis, err := net.Listen("tcp", config.Options.GRPCAddr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("listen %s: %w", config.Options.GRPCAddr, err)
 	}
+
+	defer func() {
+		if err != nil {
+			_ = lis.Close()
+		}
+	}()
 
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpcserver.AuthInterceptor()),

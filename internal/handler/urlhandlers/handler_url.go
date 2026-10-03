@@ -334,7 +334,7 @@ func (h *URLHandler) GetStat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	countUsers, countURLs, err := h.service.GetStat()
+	countUsers, countURLs, err := h.service.GetStat(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

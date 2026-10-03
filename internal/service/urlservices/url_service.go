@@ -3,6 +3,7 @@
 package urlservices
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -199,8 +200,8 @@ func (s *URLService) DeleteUserURLs(shortIDs []string, userID string) {
 }
 
 // GetStat возвращает кол-во url и пользователей
-func (s *URLService) GetStat() (int, int, error) {
-	countUsers, countURLs, err := s.repository.GetStat()
+func (s *URLService) GetStat(ctx context.Context) (int, int, error) {
+	countUsers, countURLs, err := s.repository.GetStat(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
