@@ -24,6 +24,7 @@ func NewRouter(handler *handler.Handler, log *zap.SugaredLogger) http.Handler {
 	r.Post("/api/shorten/batch", handler.URLHandler.GetJSONShortenedBatch)
 	r.Get("/api/user/urls", handler.URLHandler.GetUserURLs)
 	r.Get("/{id}", handler.URLHandler.RedirectFullURL)
+	r.Get("/api/internal/stats", handler.URLHandler.GetStat)
 	r.Get("/ping", handler.URLHandler.PingHandler)
 	r.Delete("/api/user/urls", handler.URLHandler.DeleteUserURLs)
 

@@ -56,8 +56,11 @@ func GetUserIDFromCookie(r *http.Request) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cookie not found: %w", err)
 	}
+	return ValidateCookieValue(cookie.Value)
+}
 
-	parts := splitCookieValue(cookie.Value)
+func ValidateCookieValue(value string) (string, error) {
+	parts := splitCookieValue(value)
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid cookie format")
 	}

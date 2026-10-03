@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	model "github.com/al-tokarev/shortener/internal/model"
@@ -90,6 +91,22 @@ func (m *MockRepositoryInterface) GetOriginalByShort(arg0 string) (string, error
 func (mr *MockRepositoryInterfaceMockRecorder) GetOriginalByShort(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalByShort", reflect.TypeOf((*MockRepositoryInterface)(nil).GetOriginalByShort), arg0)
+}
+
+// GetStat mocks base method.
+func (m *MockRepositoryInterface) GetStat(arg0 context.Context) (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStat", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStat indicates an expected call of GetStat.
+func (mr *MockRepositoryInterfaceMockRecorder) GetStat(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStat", reflect.TypeOf((*MockRepositoryInterface)(nil).GetStat), arg0)
 }
 
 // GetUserURLs mocks base method.

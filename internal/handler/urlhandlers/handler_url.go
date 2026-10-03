@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -310,6 +311,45 @@ func (h *URLHandler) RedirectFullURL(w http.ResponseWriter, r *http.Request) {
 	h.dispatcher.Dispatch(event)
 
 	http.Redirect(w, r, fullURL, http.StatusTemporaryRedirect)
+}
+
+func (h *URLHandler) GetStat(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	ipStr := r.Header.Get("X-Real-IP")
+	if ipStr == "" || config.Options.TrustedSubnet == "" {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	_, subnet, err := net.ParseCIDR(config.Options.TrustedSubnet)
+	if err != nil || !subnet.Contains(ip) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	countUsers, countURLs, err := h.service.GetStat(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	response := model.ResponseStat{
+		UsersCount: countUsers,
+		UrlsCount:  countURLs,
+	}
+
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(response); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 // PingHandler проверяет доступность базы данных.

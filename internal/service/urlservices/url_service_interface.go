@@ -1,6 +1,10 @@
 package urlservices
 
-import "github.com/al-tokarev/shortener/internal/model"
+import (
+	"context"
+
+	"github.com/al-tokarev/shortener/internal/model"
+)
 
 type URLServiceInterface interface {
 	SetURL(original string, userID string) (*model.URL, error)
@@ -9,5 +13,6 @@ type URLServiceInterface interface {
 	GetFullURL(short string) (string, error)
 	GenerateShort() string
 	DeleteUserURLs(shortIDs []string, userID string)
+	GetStat(ctx context.Context) (int, int, error)
 	PingDB() error
 }

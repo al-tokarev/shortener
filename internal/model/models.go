@@ -54,3 +54,8 @@ type ResponseUserURL struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
+
+type ResponseStat struct {
+	UrlsCount  int `json:"urls"`
+	UsersCount int `json:"users"`
+}

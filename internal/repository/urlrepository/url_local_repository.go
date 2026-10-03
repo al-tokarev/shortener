@@ -2,6 +2,7 @@ package urlrepository
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"sync"
@@ -174,6 +175,10 @@ func (repository *LocalRepository) GetLastID() int {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 	return repository.lastID
+}
+
+func (repository *LocalRepository) GetStat(ctx context.Context) (int, int, error) {
+	return 0, 0, nil
 }
 
 func (repository *LocalRepository) Ping() error {

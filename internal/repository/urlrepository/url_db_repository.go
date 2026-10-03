@@ -258,6 +258,17 @@ func (repository *DBRepository) BatchDelete(shortIDs []string, userID string) er
 	return nil
 }
 
+func (repository *DBRepository) GetStat(ctx context.Context) (int, int, error) {
+	query := `SELECT COUNT(*) AS urls, COUNT(DISTINCT user_id) AS users FROM urls`
+
+	var countUsers, countURLs int
+	err := repository.conn.QueryRowContext(ctx, query).Scan(&countURLs, &countUsers)
+	if err != nil {
+		return 0, 0, fmt.Errorf("query stats: %w", err)
+	}
+	return countURLs, countUsers, nil
+}
+
 // Ping проверяет доступность базы данных.
 // Возвращает ошибку если база данных недоступна.
 func (repository *DBRepository) Ping() error {
